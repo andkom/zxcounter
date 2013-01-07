@@ -328,7 +328,7 @@ void displayStats(float cps, boolean ready, int period, boolean minutes) {
 
 // displays stats within all time
 void displayAllStats() {
-  // convert CPS to CPM
+  // calculate CPM
   float cpm = total / (time / 60.);
   
   // convert CPM to uSv;
