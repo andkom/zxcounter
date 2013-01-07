@@ -40,8 +40,9 @@
 #define MODE_1M_STATS     5
 #define MODE_5M_STATS     6
 #define MODE_10M_STATS    7
-#define MODE_MAX          8
-#define MODE_DOSE         9
+#define MODE_ALL_STATS    8
+#define MODE_MAX          9
+#define MODE_DOSE         10
 
 // counts within 1 sec, 5 sec and 10 sec
 volatile unsigned long count_1s;
@@ -158,7 +159,7 @@ void loop() {
       }
 
       // redraw display after some modes
-      if (mode == MODE_AUTO_STATS || mode == MODE_MAX || mode == MODE_DOSE) {
+      if (mode == MODE_AUTO_STATS || mode == MODE_ALL_STATS || mode == MODE_MAX || mode == MODE_DOSE) {
         lcd.clear();
         printScale();      
       }
@@ -208,6 +209,11 @@ void loop() {
       case MODE_10M_STATS:
         // display 10 min stats
         displayStats(get10mCPS(), counts_10m_ready, 10, true);
+        break;
+
+      case MODE_ALL_STATS:
+        // display stats within all time
+        displayAllStats();
         break;
 
       case MODE_MAX:
@@ -318,6 +324,35 @@ void displayStats(float cps, boolean ready, int period, boolean minutes) {
 
   lcd.setCursor(13, 1);
   printPeriod(period, minutes); // 3 chars
+}
+
+// displays stats within all time
+void displayAllStats() {
+  // convert CPS to CPM
+  float cpm = total / (time / 60.);
+  
+  // convert CPM to uSv;
+  float usv = cpm / RATIO;
+
+  // update CPM
+  lcd.setCursor(4, 0);
+  lcd.print("      "); // erase 6 chars after "CPM "
+  lcd.setCursor(4, 0);
+  printCPM(cpm); // max 6 chars
+  
+  // update time
+  lcd.setCursor(11, 0);
+  printTime(time); // 5 chars
+  
+  // update Sv dimenstion
+  lcd.setCursor(0, 1);
+  printSv(usv); // 1 char before "Sv"
+  
+  // update dose
+  lcd.setCursor(6, 1);
+  lcd.print("      "); // erase 6 chars after "uSv/h "
+  lcd.setCursor(6, 1);
+  printDose(usv, 2); // max 6 chars
 }
 
 // displays max count and max Sv
@@ -502,6 +537,15 @@ void printScale() {
       lcd.print("uSv/h ?");
       break;
 
+    case MODE_ALL_STATS:
+      lcd.setCursor(0, 0);
+      lcd.print("CPM ?");
+      lcd.setCursor(0, 1);
+      lcd.print("uSv/h ?");
+      lcd.setCursor(13, 1);
+      lcd.print("ALL");
+      break;
+
     case MODE_MAX:
       lcd.setCursor(0, 0);
       lcd.print("CPM ?");
@@ -600,6 +644,9 @@ void collectData() {
     // limit time to MAX_TIME seconds
     if (time >= MAX_TIME) {
       time = 0;
+      
+      // also reset total count for all time stats
+      total = 0;
     }
     
     // assign current CPS
