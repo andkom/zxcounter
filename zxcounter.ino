@@ -13,6 +13,8 @@
 #define BUTTON_PERIOD     500      // button check period
 #define DEBOUNCE_PERIOD   50       // button debounce period
 
+#define BLINK_DELAY       REFRESH_PERIOD / 2
+
 #define COUNTS_5S_LEN     5        // 5 sec stats array length (5 data points per second)
 #define COUNTS_10S_LEN    10       // 10 sec stats array lenght (10 data points per second) 
 #define COUNTS_30S_LEN    30       // 30 sec stats array lenght (10 data points per second) 
@@ -292,7 +294,7 @@ void displayAutoStats() {
   
   // blink while data is not ready
   if (!ready) {
-    delay(500);
+    delay(BLINK_DELAY);
   }
 
   printDose(avg_usv, 2); // max 6 chars
@@ -331,7 +333,7 @@ void displayStats(float cps, boolean ready, int period, boolean minutes) {
   
   // blink while data is not ready
   if (!ready) {
-    delay(500);
+    delay(BLINK_DELAY);
   }
   
   printDose(usv, 2); // max 6 chars
