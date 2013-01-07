@@ -279,7 +279,7 @@ void displayAutoStats() {
 
   // update period
   lcd.setCursor(13, 1);
-  printPeriod(period, (period == 60)); // 3 chars
+  printPeriod(period, false); // 3 chars
 }
 
 // displays stats within period
