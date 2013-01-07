@@ -232,6 +232,7 @@ void loop() {
 // displays auto stats
 void displayAutoStats() {
   byte period;
+  boolean ready;
   float cps_5s, cpm_5s, avg_cps, avg_cpm, avg_usv;
     
   // calculate average CPS within last 5 sec
@@ -244,18 +245,23 @@ void displayAutoStats() {
   if (cpm_5s > CPM_LIMIT_1S) {
     period = 1;
     avg_cps = counts_1s; // current CPS
+    ready = true;
   } else if (cpm_5s > CPM_LIMIT_5S) {
     period = 5;
     avg_cps = cps_5s; // average CPS within 5 sec
+    ready = counts_5s_ready;
   } else if (cpm_5s > CPM_LIMIT_10S) {
     period = 10;
     avg_cps = get10sCPS(); // average CPS within 10 sec
+    ready = counts_10s_ready;
   } else if (cpm_5s > CPM_LIMIT_30S) {
     period = 30;
     avg_cps = get30sCPS(); // average CPS within 30 sec
+    ready = counts_30s_ready;
   } else {
     period = 60;
     avg_cps = get1mCPS(); // average CPS within 1 min
+    ready = counts_1m_ready;
   }
       
   // convert CPS to CPM
@@ -283,6 +289,12 @@ void displayAutoStats() {
   lcd.setCursor(6, 1);
   lcd.print("      "); // erase 6 chars after "uSv/h "
   lcd.setCursor(6, 1);
+  
+  // blink while data is not ready
+  if (!ready) {
+    delay(500);
+  }
+
   printDose(avg_usv, 2); // max 6 chars
 
   // update period
@@ -316,12 +328,14 @@ void displayStats(float cps, boolean ready, int period, boolean minutes) {
   lcd.setCursor(6, 1);
   lcd.print("      "); // erase 6 chars after "uSv/h "
   lcd.setCursor(6, 1);
+  
+  // blink while data is not ready
+  if (!ready) {
+    delay(500);
+  }
+  
   printDose(usv, 2); // max 6 chars
   
-  if (!ready) {
-    lcd.print("?"); // add question mark if data is not ready yet
-  }
-
   lcd.setCursor(13, 1);
   printPeriod(period, minutes); // 3 chars
 }
