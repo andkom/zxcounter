@@ -25,6 +25,8 @@
 #define CPM_LIMIT_10S     300      // min CPM to display 10 sec stats     
 #define CPM_LIMIT_30S     60       // min CPM to displat 30 sec stats
 
+#define MAX_TIME          8640000  // limit time to 100 days
+
 #define BAR_BLOCKS        5        // bars count
 #define BAR_SCALE         5.       // max uSv for all 5 bars
 
@@ -380,12 +382,21 @@ void displayDose() {
   printDose(usv, 3); // max 7  chars
 }
 
-// prints time
-void printTime(unsigned long t) {
+// prints auto scaled time
+void printTime(unsigned long sec) {
   char str[6];
-  int min = t / 60, sec = t % 60;
- 
-  sprintf(str, "%02d:%02d", min, sec);
+  int days = sec / 86400;
+  int hours = (sec % 86400) / 3600;
+  int minutes = ((sec % 86400) % 3600) / 60;
+  int seconds = ((sec % 86400) % 3600) % 60;
+  
+  if (days) {
+    sprintf(str, "%02dd%02d", days, hours);
+  } else if (hours) {
+    sprintf(str, "%02dh%02d", hours, minutes);
+  } else {
+    sprintf(str, "%02d:%02d", minutes, seconds);
+  }
   
   lcd.print(str);
 }
@@ -585,6 +596,11 @@ void collectData() {
   if (millis() >= count_1s_time + PERIOD_1S) {
     // increment time
     time++;
+    
+    // limit time to MAX_TIME seconds
+    if (time >= MAX_TIME) {
+      time = 0;
+    }
     
     // assign current CPS
     counts_1s = count_1s;
