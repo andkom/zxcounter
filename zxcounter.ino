@@ -153,8 +153,39 @@ void setup() {
   lcd.createChar(4, bar_4);
   lcd.createChar(5, bar_5);  
   
-  // display startup messages
-  reset();  
+  // read EEPROM settings
+  readEEPROM();
+  
+  // print software version
+  clearDisplay();
+  lcd.setCursor(3, 0);
+  lcd.print("ZX Counter");
+  lcd.setCursor(2, 1);
+  lcd.print("Version ");
+  lcd.print(VERSION);
+  delay(1500);
+
+  // print VCC
+  clearDisplay();
+  long vcc = readVCC();
+  lcd.print("VCC: ");
+  lcd.print(vcc/1000., 2);
+  lcd.print("V");
+
+  // print avail RAM
+  lcd.setCursor(0, 1);
+  lcd.print("RAM: ");
+  lcd.print(getAvailRAM());
+  delay(1500);
+
+  // alarm setting
+  alarmSetting();
+  
+  // print scale
+  printScale();
+  
+  // reset counts
+  resetCounts();
 }
 
 void loop() {
@@ -171,7 +202,6 @@ void loop() {
         mode = MODE_1S_STATS;
 
         // redraw display and scale
-        clearDisplay();
         printScale();      
       } else {
         // cycle alt displays
@@ -197,7 +227,6 @@ void loop() {
       }
 
       // redraw display and scale
-      clearDisplay();
       printScale();      
     }
   }    
@@ -561,6 +590,7 @@ void printBar(float value, float max, unsigned int blocks) {
 
 // prints scale
 void printScale() {
+  clearDisplay();
   switch (mode) {
     case MODE_AUTO_STATS:
     case MODE_1S_STATS:
@@ -605,42 +635,8 @@ void printScale() {
   }
 }
 
-// reset display and stats data
-void reset() {
-  clearDisplay();
-  
-  // read EEPROM settings
-  readEEPROM();
-  
-  // print software version
-  lcd.setCursor(3, 0);
-  lcd.print("ZX Counter");
-  lcd.setCursor(2, 1);
-  lcd.print("Version ");
-  lcd.print(VERSION);
-  delay(1500);
-
-  // print VCC
-  clearDisplay();
-  long vcc = readVCC();
-  lcd.print("VCC: ");
-  lcd.print(vcc/1000., 2);
-  lcd.print("V");
-
-  // print avail RAM
-  lcd.setCursor(0, 1);
-  lcd.print("RAM: ");
-  lcd.print(getAvailRAM());
-  delay(1500);
-
-  // alarm setting
-  alarmSetting();
-  
-  // print scale
-  clearDisplay();
-  printScale();
-  
-  // reset counts data
+// reset counts
+void resetCounts() {
   counts_1s = 0;
 
   for (int i = 0; i < COUNTS_5S_LEN; i++) {
