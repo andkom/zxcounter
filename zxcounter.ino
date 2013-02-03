@@ -1,6 +1,7 @@
 // ZX Counter sketch for DIYGeigerCounter Kit
 #include <stdio.h>
 #include <LiquidCrystal.h>
+#include <EEPROM.h>
 
 #define VERSION           1.2      // version of this software
 #define RATIO             175.43   // CPM to uSv converion ratio
@@ -9,6 +10,7 @@
 #define PERIOD_5S         5000
 #define PERIOD_10S        10000
 
+#define BUTTON_WAIT       2000     // wait until button pressed
 #define REFRESH_PERIOD    1000     // display refresh period
 #define BUTTON_PERIOD     500      // button check period
 #define DEBOUNCE_PERIOD   50       // button debounce period
@@ -29,11 +31,13 @@
 
 #define MAX_TIME          8640000  // limit time to 100 days
 
-#define BAR_BLOCKS        5        // bars count
-#define BAR_SCALE         5.       // max uSv for all 5 bars
-
 #define MODE_BUTTON_PIN   10       // button to toggle display mode
 #define INT_BUTTON_PIN    11       // button to togle interval
+
+#define ALARM_PIN         15       // Outputs HIGH when alarm triggered
+#define ALARM_ADDR        8        // adress of alarm setting in EEPROM
+#define ALARM_USV         5.       // default uSv
+#define ALARM_MAX         100.     // max uSv can be set
 
 #define MODE_AUTO_STATS   0
 #define MODE_ALL_STATS    1
@@ -54,7 +58,11 @@ volatile unsigned long count_5s;
 volatile unsigned long count_10s;
 
 // default startup mode
-int mode = MODE_AUTO_STATS;
+unsigned int mode = MODE_AUTO_STATS;
+
+// alarm setting
+float alarm_usv = 1.;
+boolean alarm_enabled = false;
 
 // total counts
 unsigned long total;
@@ -131,6 +139,9 @@ void setup() {
   digitalWrite(MODE_BUTTON_PIN, HIGH);
   digitalWrite(INT_BUTTON_PIN, HIGH);
   
+  // setup alarm PIN
+  pinMode(ALARM_PIN, OUTPUT); 
+  
   // init 16x2 display
   lcd.begin(16,2);
   
@@ -195,6 +206,9 @@ void loop() {
   if (millis() >= last_refresh + REFRESH_PERIOD) {
     // update last refresh time
     last_refresh = millis();
+    
+    // check if alarm must be turned on
+    checkAlarm();
 
     switch (mode) {
       case MODE_AUTO_STATS:
@@ -304,7 +318,12 @@ void displayAutoStats() {
   lcd.setCursor(11, 0);
   lcd.print("     "); // erase 5 chars
   lcd.setCursor(11, 0);  
-  printBar(counts_1s * 60. / RATIO); // max 5 chars
+  
+  if (alarm_enabled) {
+    lcd.print("ALARM");
+  } else {
+    printBar(counts_1s * 60. / RATIO, alarm_usv ? alarm_usv : ALARM_USV, 5); // max 5 chars
+  }
   
   // update Sv dimension
   lcd.setCursor(0, 1);
@@ -523,15 +542,15 @@ void printPeriod(int period, boolean minutes) {
 }
 
 // prints analog bar
-void printBar(float usv) {
-  if (usv > BAR_SCALE) {
-    usv = BAR_SCALE;
+void printBar(float value, float max, unsigned int blocks) {
+  if (value > max) {
+    value = max;
   }
   
-  float scaler = BAR_SCALE / float(BAR_BLOCKS * 5);
-  float bar_usv = usv / scaler;
-  unsigned int full_blocks = int(bar_usv) / BAR_BLOCKS;
-  unsigned int prtl_blocks = int(bar_usv) % BAR_BLOCKS;
+  float scaler = max / float(blocks * 5);
+  float bar_value = value / scaler;
+  unsigned int full_blocks = int(bar_value) / blocks;
+  unsigned int prtl_blocks = int(bar_value) % blocks;
 
   for (int i = 0; i < full_blocks; i++) {
     lcd.write(5);
@@ -590,6 +609,9 @@ void printScale() {
 void reset() {
   clearDisplay();
   
+  // read EEPROM settings
+  readEEPROM();
+  
   // print software version
   lcd.setCursor(3, 0);
   lcd.print("ZX Counter");
@@ -610,6 +632,9 @@ void reset() {
   lcd.print("RAM: ");
   lcd.print(getAvailRAM());
   delay(1500);
+
+  // alarm setting
+  alarmSetting();
   
   // print scale
   clearDisplay();
@@ -650,6 +675,106 @@ void reset() {
   
   // reset counts
   time = total = max_cpm = max_time = count_1s = count_5s = count_10s = 0;
+}
+
+// check if alarm uSv reached
+void checkAlarm() {
+  float usv;
+  
+  if (alarm_usv) {
+    usv = get5sCPS() * 60. / RATIO;
+    
+    if (usv >= alarm_usv) {
+      setAlarm(true);
+    } else if (alarm_enabled) {
+      setAlarm(false);
+    }
+  } else if (alarm_enabled) {
+    setAlarm(false);
+  }
+}
+
+// turn alarm on or off
+void setAlarm(boolean enabled) {
+  if (enabled) {
+    // turn on alarm (set alarm pin to Vcc) 
+    digitalWrite(ALARM_PIN, HIGH);
+    alarm_enabled = true;
+  } else {
+    // turn off alarm (set alarm pin to Gnd)
+    digitalWrite(ALARM_PIN, LOW);
+    alarm_enabled = false;
+  }
+}
+
+// alarm setting
+void alarmSetting() { 
+  clearDisplay();  
+  lcd.print("Set Alarm?");
+  lcd.setCursor(0, 1);
+  if (alarm_usv) {
+    lcd.print("Now "); 
+    lcd.print(alarm_usv, 2); 
+    lcd.print(" uSv"); 
+  } else {
+    lcd.print("Now Off"); 
+  }
+
+  long time = millis();
+  float new_alarm_usv = alarm_usv;
+  
+  while (millis() < time + BUTTON_WAIT) { 
+    boolean pushed = false;
+    
+    if (readButton(INT_BUTTON_PIN) == LOW) { 
+      pushed = true;
+      if (new_alarm_usv <= 10) {
+        new_alarm_usv = new_alarm_usv--;
+      } else {
+        new_alarm_usv = new_alarm_usv - 10;
+      }
+      if (new_alarm_usv < 0) {
+        new_alarm_usv = ALARM_MAX;
+      }
+    }
+
+    if (readButton(MODE_BUTTON_PIN) == LOW) { 
+      pushed = true;
+      if (new_alarm_usv < 10) {
+        new_alarm_usv = new_alarm_usv++;
+      } else {
+        new_alarm_usv = new_alarm_usv + 10;
+      }
+      if (new_alarm_usv > ALARM_MAX) {
+        new_alarm_usv = 0;
+      }
+    }
+
+    if (pushed) {
+      lcd.setCursor(0, 1); 
+      lcd.print("                ");
+      lcd.setCursor(0, 1);
+  
+      if (new_alarm_usv) {
+        lcd.print(new_alarm_usv, 2); 
+        lcd.print(" uSv");
+      } else {
+        lcd.print("Alarm Off"); 
+      }
+  
+      time = millis();
+      delay(100);
+    }
+  } 
+  
+  if (new_alarm_usv != alarm_usv) {
+    EEPROM.write(ALARM_ADDR, new_alarm_usv / 1.);
+    alarm_usv = new_alarm_usv;
+    lcd.setCursor(11, 1);
+    lcd.print("SAVED");
+  }
+  
+  delay(1500);
 }
 
 // triggers on interrupt event
@@ -894,6 +1019,12 @@ void clearDisplay() {
   lcd.clear(); // clear the screen
   lcd.setCursor(0,0); // reset the cursor for the poor OLED
   lcd.setCursor(0,0); // do it again for the OLED
+}
+
+void readEEPROM() {
+  byte alarm_setting = EEPROM.read(ALARM_ADDR);
+  if (alarm_setting == 255) alarm_setting = 0; // deal with virgin EEPROM
+  alarm_usv = alarm_setting * 1.;
 }
 
 long readVCC() {
