@@ -32,19 +32,21 @@
 #define BAR_BLOCKS        5        // bars count
 #define BAR_SCALE         5.       // max uSv for all 5 bars
 
-#define BUTTON_PIN        10       // button to toggle display mode
+#define MODE_BUTTON_PIN   10       // button to toggle display mode
+#define INT_BUTTON_PIN    11       // button to togle interval
 
 #define MODE_AUTO_STATS   0
-#define MODE_1S_STATS     1
-#define MODE_5S_STATS     2
-#define MODE_10S_STATS    3
-#define MODE_30S_STATS    4
-#define MODE_1M_STATS     5
-#define MODE_5M_STATS     6
-#define MODE_10M_STATS    7
-#define MODE_ALL_STATS    8
-#define MODE_MAX          9
-#define MODE_DOSE         10
+#define MODE_ALL_STATS    1
+#define MODE_MAX          2
+#define MODE_DOSE         3
+
+#define MODE_1S_STATS     4
+#define MODE_5S_STATS     5
+#define MODE_10S_STATS    6
+#define MODE_30S_STATS    7
+#define MODE_1M_STATS     8
+#define MODE_5M_STATS     9
+#define MODE_10M_STATS    10
 
 // counts within 1 sec, 5 sec and 10 sec
 volatile unsigned long count_1s;
@@ -123,9 +125,11 @@ void setup() {
   // geiger event on pin 2 triggers interrupt
   attachInterrupt(0, click, FALLING);
   
-  // setup mode switch button
-  pinMode(BUTTON_PIN, INPUT);
-  digitalWrite(BUTTON_PIN, HIGH);
+  // setup buttons
+  pinMode(MODE_BUTTON_PIN, INPUT);
+  pinMode(INT_BUTTON_PIN, INPUT);
+  digitalWrite(MODE_BUTTON_PIN, HIGH);
+  digitalWrite(INT_BUTTON_PIN, HIGH);
   
   // init 16x2 display
   lcd.begin(16,2);
@@ -151,20 +155,39 @@ void loop() {
     // update last button check time
     last_button_time = millis();
     
-    // if button was pressed
-    if (readButton(BUTTON_PIN) == LOW) {
-      // circle modes
-      mode++;
+    if (readButton(INT_BUTTON_PIN) == LOW) {
+      if (mode < MODE_1S_STATS || mode > MODE_10M_STATS) {
+        mode = MODE_1S_STATS;
 
-      if (mode > MODE_DOSE) {
-        mode = 0;
-      }
-
-      // redraw display after some modes
-      if (mode == MODE_AUTO_STATS || mode == MODE_ALL_STATS || mode == MODE_MAX || mode == MODE_DOSE) {
+        // redraw display and scale
         clearDisplay();
         printScale();      
+      } else {
+        // cycle alt displays
+        mode++;
+        
+        if (mode > MODE_10M_STATS) {
+          mode = MODE_1S_STATS;
+        }
       }
+    }
+    
+    // if mode button was pressed
+    if (readButton(MODE_BUTTON_PIN) == LOW) {
+      if (mode < MODE_AUTO_STATS || mode > MODE_DOSE) {
+        mode = MODE_AUTO_STATS;
+      } else {
+        // cycle modes
+        mode++;
+
+        if (mode > MODE_DOSE) {
+          mode = 0;
+        }
+      }
+
+      // redraw display and scale
+      clearDisplay();
+      printScale();      
     }
   }    
     
@@ -177,7 +200,22 @@ void loop() {
       case MODE_AUTO_STATS:
         displayAutoStats();
         break;
-        
+
+      case MODE_ALL_STATS:
+        // display stats within all time
+        displayAllStats();
+        break;
+
+      case MODE_MAX:
+        // display max CPM and dose
+        displayMax();
+        break;
+
+      case MODE_DOSE:
+        // display total count and accumulated Sv
+        displayDose();
+        break;
+
       case MODE_1S_STATS:
         // display 1 sec stats
         displayStats(counts_1s, true, 1, false);
@@ -211,21 +249,6 @@ void loop() {
       case MODE_10M_STATS:
         // display 10 min stats
         displayStats(get10mCPS(), counts_10m_ready, 10, true);
-        break;
-
-      case MODE_ALL_STATS:
-        // display stats within all time
-        displayAllStats();
-        break;
-
-      case MODE_MAX:
-        // display max CPM and dose
-        displayMax();
-        break;
-
-      case MODE_DOSE:
-        // display total count and accumulated Sv
-        displayDose();
         break;
     }
   }
