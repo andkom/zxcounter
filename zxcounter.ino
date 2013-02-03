@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <LiquidCrystal.h>
 
-#define VERSION           1.1      // version of this software
+#define VERSION           1.2      // version of this software
 #define RATIO             175.43   // CPM to uSv converion ratio
 
 #define PERIOD_1S         1000
@@ -162,7 +162,7 @@ void loop() {
 
       // redraw display after some modes
       if (mode == MODE_AUTO_STATS || mode == MODE_ALL_STATS || mode == MODE_MAX || mode == MODE_DOSE) {
-        lcd.clear();
+        clearDisplay();
         printScale();      
       }
     }
@@ -517,25 +517,6 @@ void printBar(float usv) {
   lcd.write(prtl_blocks);
 }
 
-// reads LOW ACTIVE push buttom and debounces
-byte readButton(int button_pin) {
-  if (digitalRead(button_pin)) {
-    // still high, nothing happened, get out
-    return HIGH;
-  } else {
-    // it's LOW - switch pushed
-    // wait for debounce period
-    delay(DEBOUNCE_PERIOD);
-    if (digitalRead(button_pin)) {
-      // no longer pressed
-      return HIGH;
-    } else {
-      // 'twas pressed
-      return LOW;
-    }
-  }
-}
-
 // prints scale
 void printScale() {
   switch (mode) {
@@ -584,7 +565,7 @@ void printScale() {
 
 // reset display and stats data
 void reset() {
-  lcd.clear();
+  clearDisplay();
   
   // print software version
   lcd.setCursor(3, 0);
@@ -594,9 +575,21 @@ void reset() {
   lcd.print(VERSION);
   delay(1500);
 
-  lcd.clear();
+  // print VCC
+  clearDisplay();
+  long vcc = readVCC();
+  lcd.print("VCC: ");
+  lcd.print(vcc/1000., 2);
+  lcd.print("V");
+
+  // print avail RAM
+  lcd.setCursor(0, 1);
+  lcd.print("RAM: ");
+  lcd.print(getAvailRAM());
+  delay(1500);
   
   // print scale
+  clearDisplay();
   printScale();
   
   // reset counts data
@@ -872,4 +865,52 @@ float get10mCPS() {
 
   return 0.;
 }
+
+void clearDisplay() {
+  // The OLED display does not always reset the cursor after a clear(), so it's done here
+  lcd.clear(); // clear the screen
+  lcd.setCursor(0,0); // reset the cursor for the poor OLED
+  lcd.setCursor(0,0); // do it again for the OLED
+}
+
+long readVCC() {
+  long result;
+  // Read 1.1V reference against AVcc
+  ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+  delay(2); // Wait for Vref to settle
+  ADCSRA |= _BV(ADSC); // Convert
+  while (bit_is_set(ADCSRA, ADSC));
+  result = ADCL;
+  result |= ADCH << 8;
+  result = 1126400L / result; // Back-calculate AVcc in mV
+  return result;
+}
+
+int getAvailRAM() { 
+  int memSize = 2048; // if ATMega328
+  byte *buff;
+  while ((buff = (byte *) malloc(--memSize)) == NULL);
+  free(buff);
+  return memSize;
+}
+
+// reads LOW ACTIVE push buttom and debounces
+byte readButton(int button_pin) {
+  if (digitalRead(button_pin)) {
+    // still high, nothing happened, get out
+    return HIGH;
+  } else {
+    // it's LOW - switch pushed
+    // wait for debounce period
+    delay(DEBOUNCE_PERIOD);
+    if (digitalRead(button_pin)) {
+      // no longer pressed
+      return HIGH;
+    } else {
+      // 'twas pressed
+      return LOW;
+    }
+  }
+}
+
 
