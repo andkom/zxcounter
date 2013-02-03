@@ -724,8 +724,10 @@ void alarmSetting() {
     
     if (readButton(INT_BUTTON_PIN) == LOW) { 
       pushed = true;
-      if (new_alarm_usv <= 10) {
-        new_alarm_usv = new_alarm_usv--;
+      if (new_alarm_usv <= 1) {
+        new_alarm_usv = new_alarm_usv - 0.1;
+      } else if (new_alarm_usv <= 10) {
+        new_alarm_usv = new_alarm_usv - 1;
       } else {
         new_alarm_usv = new_alarm_usv - 10;
       }
@@ -736,8 +738,10 @@ void alarmSetting() {
 
     if (readButton(MODE_BUTTON_PIN) == LOW) { 
       pushed = true;
-      if (new_alarm_usv < 10) {
-        new_alarm_usv = new_alarm_usv++;
+      if (new_alarm_usv < 1) {
+        new_alarm_usv = new_alarm_usv + 0.1;
+      } else if (new_alarm_usv < 10) {
+        new_alarm_usv = new_alarm_usv + 1;
       } else {
         new_alarm_usv = new_alarm_usv + 10;
       }
@@ -764,7 +768,7 @@ void alarmSetting() {
   } 
   
   if (new_alarm_usv != alarm_usv) {
-    EEPROM.write(ALARM_ADDR, new_alarm_usv / 1.);
+    EEPROM.write(ALARM_ADDR, new_alarm_usv * 10.);
     alarm_usv = new_alarm_usv;
     lcd.setCursor(11, 1);
     lcd.print("SAVED");
@@ -1020,7 +1024,7 @@ void clearDisplay() {
 void readEEPROM() {
   byte alarm_setting = EEPROM.read(ALARM_ADDR);
   if (alarm_setting == 255) alarm_setting = 0; // deal with virgin EEPROM
-  alarm_usv = alarm_setting * 1.;
+  alarm_usv = alarm_setting / 10.;
 }
 
 long readVCC() {
