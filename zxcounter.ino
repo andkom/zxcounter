@@ -32,11 +32,19 @@
 
 #define MODE_BUTTON_PIN   10       // button to toggle display mode
 #define INT_BUTTON_PIN    11       // button to togle interval
-
-#define ALARM_PIN         15       // Outputs HIGH when alarm triggered
-#define ALARM_MAX         100.     // max uSv can be set
+#define ALARM_PIN         15       // outputs HIGH when alarm triggered
 
 #define SETTINGS_ADDR     32       // settings addr in EEPROM
+
+#define UNIT_SV           0        // Siverts
+#define UNIT_R            1        // Roentgens
+
+#define DEFAULT_UNIT      UNIT_SV  // siverts by default
+#define DEFAULT_ALARM     5.       // alarm is off by default
+#define DEFAULT_RATIO     175.     // default CPM to uSv/h ratio for SBM-20
+
+#define MAX_ALARM         100      // uSv/h
+#define MAX_RATIO         2000     // CPM to uSv/h
 
 #define MODE_AUTO_STATS   0
 #define MODE_ALL_STATS    1
@@ -52,14 +60,10 @@
 #define MODE_10M_STATS    10
 
 struct Settings {
-  float alarm;
-  float ratio;
   byte unit;
-} settings, default_settings = {
-  0,      // alarm is off by default
-  175.,   // CPM to uSv ratio for SBM-20
-  0       // Sv is by default
-};
+  float alarm; // uSv/h only
+  float ratio; // CPM to uSv/h only
+} settings;
 
 // counts within 1 sec, 5 sec and 10 sec
 volatile unsigned long count_1s;
@@ -68,6 +72,9 @@ volatile unsigned long count_10s;
 
 // default startup mode
 byte mode = MODE_AUTO_STATS;
+
+// conversion factor depends on unit
+float factor = 1.;
 
 // alarm enabled flag
 boolean alarm_enabled = false;
@@ -186,6 +193,9 @@ void setup() {
   lcd.print(getAvailRAM());
   delay(1500);
 
+  // unit setting
+  unitSetting();
+
   // alarm setting
   alarmSetting();
   
@@ -278,7 +288,7 @@ void refreshDisplay() {
       break;
 
     case MODE_DOSE:
-      // display total count and accumulated Sv
+      // display total count and accumulated dose
       displayDose();
       break;
 
@@ -323,7 +333,7 @@ void refreshDisplay() {
 void displayAutoStats() {
   byte period;
   boolean ready;
-  float cps_5s, cpm_5s, avg_cps, avg_cpm, avg_usv;
+  float cps_5s, cpm_5s, avg_cps, avg_cpm, avg_dose;
     
   // calculate average CPS within last 5 sec
   cps_5s = get5sCPS();
@@ -357,8 +367,8 @@ void displayAutoStats() {
   // convert CPS to CPM
   avg_cpm = avg_cps * 60.;
   
-  // convert CPM to uSv
-  avg_usv = avg_cpm / settings.ratio;
+  // convert CPM to dose
+  avg_dose = avg_cpm / settings.ratio * factor;
     
   // update CPM
   lcd.setCursor(4, 0);
@@ -373,16 +383,18 @@ void displayAutoStats() {
   if (alarm_enabled) {
     lcd.print("ALARM");
   } else {
-    printBar(counts_1s * 60. / settings.ratio, settings.alarm ? settings.alarm : 5., 5); // max 5 chars
+    printBar(counts_1s * 60. / settings.ratio * factor, settings.alarm ? settings.alarm * factor : DEFAULT_ALARM * factor, 5); // max 5 chars
   }
   
-  // update Sv dimension
+  // update dose unit
   lcd.setCursor(0, 1);
-  printSv(avg_usv); // 1 char before "Sv"
+  lcd.print("     "); // erase 5 chars
+  lcd.setCursor(0, 1);
+  printUnit(avg_dose, true); // max 5 chars
   
   // update dose
   lcd.setCursor(6, 1);
-  lcd.print("      "); // erase 6 chars after "uSv/h "
+  lcd.print("      "); // erase 6 chars after unit
   lcd.setCursor(6, 1);
   
   // blink while data is not ready
@@ -390,7 +402,7 @@ void displayAutoStats() {
     delay(BLINK_DELAY);
   }
 
-  printDose(avg_usv, 2); // max 6 chars
+  printDose(avg_dose, 2); // max 6 chars
 
   // update period
   lcd.setCursor(13, 1);
@@ -402,8 +414,8 @@ void displayStats(float cps, boolean ready, byte period, boolean minutes) {
   // convert CPS to CPM
   float cpm = cps * 60.;
   
-  // convert CPM to uSv;
-  float usv = cpm / settings.ratio;
+  // convert CPM to equivalent dose;
+  float dose = cpm / settings.ratio * factor;
 
   // update CPM
   lcd.setCursor(4, 0);
@@ -415,13 +427,15 @@ void displayStats(float cps, boolean ready, byte period, boolean minutes) {
   lcd.setCursor(11, 0);
   printTime(time); // 5 chars
   
-  // update Sv dimenstion
+  // update dose unit
   lcd.setCursor(0, 1);
-  printSv(usv); // 1 char before "Sv"
+  lcd.print("     "); // erase 5 chars
+  lcd.setCursor(0, 1);
+  printUnit(dose, true); // max 5 chars
   
   // update dose
   lcd.setCursor(6, 1);
-  lcd.print("      "); // erase 6 chars after "uSv/h "
+  lcd.print("      "); // erase 6 chars after unit
   lcd.setCursor(6, 1);
   
   // blink while data is not ready
@@ -429,7 +443,7 @@ void displayStats(float cps, boolean ready, byte period, boolean minutes) {
     delay(BLINK_DELAY);
   }
   
-  printDose(usv, 2); // max 6 chars
+  printDose(dose, 2); // max 6 chars
   
   lcd.setCursor(13, 1);
   printPeriod(period, minutes); // 3 chars
@@ -440,8 +454,8 @@ void displayAllStats() {
   // calculate CPM
   float cpm = total / (time / 60.);
   
-  // convert CPM to uSv;
-  float usv = cpm / settings.ratio;
+  // convert CPM to equivalent dose;
+  float dose = cpm / settings.ratio * factor;
 
   // update CPM
   lcd.setCursor(4, 0);
@@ -453,21 +467,23 @@ void displayAllStats() {
   lcd.setCursor(11, 0);
   printTime(time); // 5 chars
   
-  // update Sv dimenstion
+  // update dose unit
   lcd.setCursor(0, 1);
-  printSv(usv); // 1 char before "Sv"
+  lcd.print("     "); // erase 5 chars
+  lcd.setCursor(0, 1);
+  printUnit(dose, true); // max 5 chars
   
   // update dose
   lcd.setCursor(6, 1);
-  lcd.print("      "); // erase 6 chars after "uSv/h "
+  lcd.print("      "); // erase 6 chars after unit
   lcd.setCursor(6, 1);
-  printDose(usv, 2); // max 6 chars
+  printDose(dose, 2); // max 6 chars
 }
 
-// displays max count and max Sv
+// displays max count and max dose
 void displayMax() {
-  // convert CPM to uSv
-  float max_usv = max_cpm / settings.ratio;
+  // convert CPM to equivalent dose
+  float max_dose = max_cpm / settings.ratio * factor;
 
   // update CPM
   lcd.setCursor(4, 0);
@@ -479,30 +495,32 @@ void displayMax() {
   lcd.setCursor(11, 0);
   printTime(max_time); // 5 chars
   
-  // update Sv dimension
+  // update dose unit
   lcd.setCursor(0, 1);
-  printSv(max_usv); // 1 char before "Sv"
+  lcd.print("     "); // erase 5 chars
+  lcd.setCursor(0, 1);
+  printUnit(max_dose, true); // max 5 chars
   
   // update dose
   lcd.setCursor(6, 1);
-  lcd.print("      "); // erase 6 chars after "uSv/h "
+  lcd.print("      "); // erase 6 chars after unit
   lcd.setCursor(6, 1);
-  printDose(max_usv, 2); // max 6 chars
+  printDose(max_dose, 2); // max 6 chars
 }
 
 // displays total count and accumulated dose
 void displayDose() {
-  float avg_cpm, avg_usv, usv = 0;
+  float avg_cpm, avg_dose, dose = 0;
   
   if (time) {
     // calculate average CPM
     avg_cpm = total / (time / 60.);
     
-    // calculate average uSv/h
-    avg_usv = avg_cpm / settings.ratio;
+    // calculate average dose
+    avg_dose = avg_cpm / settings.ratio * factor;
     
-    // calulate accumulated uSv
-    usv = avg_usv * (time / 3600.);
+    // calulate accumulated dose
+    dose = avg_dose * (time / 3600.);
   }
 
   // update total count
@@ -515,15 +533,17 @@ void displayDose() {
   lcd.setCursor(11, 0);
   printTime(time); // 5 chars
   
-  // update Sv dimension
+  // update dose unit
   lcd.setCursor(0, 1);
-  printSv(usv); // 1 char before "Sv"
+  lcd.print("     "); // erase 5 chars
+  lcd.setCursor(0, 1);
+  printUnit(dose, false); // max 3 chars
   
   // update dose
   lcd.setCursor(4, 1);
-  lcd.print("       "); // erase 7 chars after "uSv "
+  lcd.print("       "); // erase 7 chars after unit
   lcd.setCursor(4, 1);
-  printDose(usv, 3); // max 7  chars
+  printDose(dose, 3); // max 7  chars
 }
 
 // prints auto scaled time
@@ -555,25 +575,31 @@ void printCPM(unsigned long cpm) {
   }
 }
 
-// prints "u", "m" or space (before "Sv") depending on the dose
-void printSv(float usv) {
-  if (usv >= 500000) {
-    lcd.print(" ");
-  } else if (usv >= 500) {
+// prints equivalent dose unit
+void printUnit(float dose, boolean per_hour) {
+  if (dose >= 500 && dose < 500000) {
     lcd.print("m");
   } else {
     lcd.print("u");
   }
+  if (settings.unit == UNIT_SV) {
+    lcd.print("Sv");
+  } else if (settings.unit == UNIT_R) {
+    lcd.print("R");
+  }
+  if (per_hour) {
+    lcd.print("/h");
+  }
 }
 
 // prints auto scaled dose
-void printDose(float usv, byte base) {
-  if (usv >= 500000) {
-    lcd.print(usv / 1000000., base);
-  } else if (usv >= 500) {
-    lcd.print(usv / 1000., base);
+void printDose(float dose, byte base) {
+  if (dose >= 500000) {
+    lcd.print(dose / 1000000., base);
+  } else if (dose >= 500) {
+    lcd.print(dose / 1000., base);
   } else {
-    lcd.print(usv, base);
+    lcd.print(dose, base);
   }
 }
 
@@ -625,14 +651,22 @@ void printScale() {
       lcd.setCursor(0, 0);
       lcd.print("CPM ?");
       lcd.setCursor(0, 1);
-      lcd.print("uSv/h ?");
+      if (settings.unit == UNIT_SV) {
+        lcd.print("uSv/h ?");
+      } else if (settings.unit == UNIT_R) {
+        lcd.print("uR/h  ?");
+      }
       break;
 
     case MODE_ALL_STATS:
       lcd.setCursor(0, 0);
       lcd.print("CPM ?");
       lcd.setCursor(0, 1);
-      lcd.print("uSv/h ?");
+      if (settings.unit == UNIT_SV) {
+        lcd.print("uSv/h ?");
+      } else if (settings.unit == UNIT_R) {
+        lcd.print("uR/h  ?");
+      }
       lcd.setCursor(13, 1);
       lcd.print("ALL");
       break;
@@ -641,7 +675,11 @@ void printScale() {
       lcd.setCursor(0, 0);
       lcd.print("CPM ?");
       lcd.setCursor(0, 1);
-      lcd.print("uSv/h ?");
+      if (settings.unit == UNIT_SV) {
+        lcd.print("uSv/h ?");
+      } else if (settings.unit == UNIT_R) {
+        lcd.print("uR/h  ?");
+      }
       lcd.setCursor(13, 1);
       lcd.print("MAX");
       break;
@@ -650,7 +688,11 @@ void printScale() {
       lcd.setCursor(0, 0);
       lcd.print("CNT ?");
       lcd.setCursor(0, 1);
-      lcd.print("uSv ?");
+      if (settings.unit == UNIT_SV) {
+        lcd.print("uSv ?");
+      } else if (settings.unit == UNIT_R) {
+        lcd.print("uR  ?");
+      }
       lcd.setCursor(12, 1);
       lcd.print("DOSE");
       break;
@@ -695,12 +737,12 @@ void resetCounts() {
   time = total = max_cpm = max_time = count_1s = count_5s = count_10s = 0;
 }
 
-// check if alarm uSv reached
+// check if alarm dose reached
 void checkAlarm() {
   float usv;
   
   if (settings.alarm) {
-    usv = get5sCPS() * 60. / settings.ratio;
+    usv = get5sCPS() * 60. / settings.ratio; // using uSv/h value for alarm
     
     if (usv >= settings.alarm) {
       setAlarm(true);
@@ -725,6 +767,55 @@ void setAlarm(boolean enabled) {
   }
 }
 
+
+// unit setting
+void unitSetting() { 
+  clearDisplay();  
+  lcd.print("Set Unit?");
+  lcd.setCursor(0, 1);
+  lcd.print("Now "); 
+  if (settings.unit == UNIT_SV) {
+    lcd.print("Sv");
+  } else if (settings.unit == UNIT_R) {
+    lcd.print("R");
+  } else {
+    lcd.print("Unknown");
+  }
+
+  long time = millis();
+  byte new_unit = settings.unit;
+  
+  while (millis() < time + BUTTON_WAIT) { 
+    if (readButton(INT_BUTTON_PIN) == LOW || readButton(MODE_BUTTON_PIN) == LOW) { 
+      if (new_unit == UNIT_SV) {
+        new_unit = UNIT_R;
+      } else {
+        new_unit = UNIT_SV;
+      }
+
+      lcd.setCursor(0, 1); 
+      lcd.print("                ");
+      lcd.setCursor(0, 1);
+      if (new_unit == UNIT_SV) {
+        lcd.print("Sv");
+      } else if (new_unit == UNIT_R) {
+        lcd.print("R");
+      }
+  
+      time = millis();
+      delay(100);
+    }
+  } 
+  
+  if (new_unit != settings.unit) {
+    settings.unit = new_unit;
+    saveSettings();
+    lcd.setCursor(11, 1);
+    lcd.print("SAVED");
+    delay(1500);
+  }
+}
+
 // alarm setting
 void alarmSetting() { 
   clearDisplay();  
@@ -733,7 +824,7 @@ void alarmSetting() {
   if (settings.alarm) {
     lcd.print("Now "); 
     lcd.print(settings.alarm, 2); 
-    lcd.print(" uSv"); 
+    lcd.print(" uSv/h");
   } else {
     lcd.print("Now Off"); 
   }
@@ -754,7 +845,7 @@ void alarmSetting() {
         new_alarm -= 10;
       }
       if (new_alarm < 0) {
-        new_alarm = ALARM_MAX;
+        new_alarm = MAX_ALARM;
       }
     }
 
@@ -767,7 +858,7 @@ void alarmSetting() {
       } else {
         new_alarm += 10;
       }
-      if (new_alarm > ALARM_MAX) {
+      if (new_alarm > MAX_ALARM) {
         new_alarm = 0;
       }
     }
@@ -779,9 +870,9 @@ void alarmSetting() {
   
       if (new_alarm) {
         lcd.print(new_alarm, 2); 
-        lcd.print(" uSv");
+        lcd.print(" uSv/h");
       } else {
-        lcd.print("Alarm Off"); 
+        lcd.print("Off"); 
       }
   
       time = millis();
@@ -804,7 +895,7 @@ void ratioSetting() {
   lcd.print("Set Ratio?");
   lcd.setCursor(0, 1);
   lcd.print("Now "); 
-  lcd.print(settings.ratio, 2); 
+  lcd.print(settings.ratio, 0); 
 
   long time = millis();
   word new_ratio = settings.ratio;
@@ -815,14 +906,17 @@ void ratioSetting() {
     if (readButton(INT_BUTTON_PIN) == LOW) { 
       pushed = true;
       new_ratio--;
-      if (new_ratio < 0) {
-        new_ratio = 0;
+      if (new_ratio <= 0) {
+        new_ratio = MAX_RATIO;
       }
     }
 
     if (readButton(MODE_BUTTON_PIN) == LOW) { 
       pushed = true;
       new_ratio += 10;
+      if (new_ratio > MAX_RATIO) {
+        new_ratio = 0;
+      }
     }
 
     if (pushed) {
@@ -1082,32 +1176,47 @@ float get10mCPS() {
   return 0.;
 }
 
+// The OLED display does not always reset the cursor after a clear(), so it's done here
 void clearDisplay() {
-  // The OLED display does not always reset the cursor after a clear(), so it's done here
   lcd.clear(); // clear the screen
   lcd.setCursor(0,0); // reset the cursor for the poor OLED
   lcd.setCursor(0,0); // do it again for the OLED
 }
 
+// update factor after settings change
+void updateFactor() {
+  if (settings.unit == UNIT_SV) {
+    factor = 1.;
+  } else if (settings.unit == UNIT_R) {
+    factor = 100.;
+  }
+}
+
+// load settings from EEPROM
 void loadSettings() {
   for (unsigned int i = 0; i < sizeof(settings); i++) {
       *((char*) &settings + i) = EEPROM.read(SETTINGS_ADDR + i);
   }
-  if (isnan(settings.alarm)) {
-    settings.alarm = default_settings.alarm;
+  if (settings.unit > UNIT_R) {
+    settings.unit = DEFAULT_UNIT;
   }
-  if (isnan(settings.ratio)) {
-    settings.ratio = default_settings.ratio;
+  if (isnan(settings.alarm) || settings.alarm < 0 || settings.alarm > MAX_ALARM) {
+    settings.alarm = DEFAULT_ALARM;
   }
-  if (settings.unit == 255) {
-    settings.unit = default_settings.unit;
+  if (isnan(settings.ratio) || settings.ratio <= 0 || settings.ratio > MAX_RATIO) {
+    settings.ratio = DEFAULT_RATIO;
   }
+  settings.alarm = round(settings.alarm * 100.) / 100.;
+  settings.ratio = round(settings.ratio * 100.) / 100.;
+  updateFactor();
 }
 
+// save settings to EEPROM
 void saveSettings() {
- for (unsigned int i = 0; i < sizeof(settings); i++) {
+  updateFactor();
+  for (unsigned int i = 0; i < sizeof(settings); i++) {
     EEPROM.write(SETTINGS_ADDR + i, *((char*) &settings + i));
- }
+  }
 }
 
 long readVCC() {
