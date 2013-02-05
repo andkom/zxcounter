@@ -57,7 +57,7 @@ struct Settings {
   byte unit;
 } settings, default_settings = {
   0,      // alarm is off by default
-  175.43, // CPM to uSv ratio for SBM-20
+  175.,   // CPM to uSv ratio for SBM-20
   0       // Sv is by default
 };
 
@@ -188,6 +188,9 @@ void setup() {
 
   // alarm setting
   alarmSetting();
+  
+  // ratio setting
+  ratioSetting();
   
   // print scale
   printScale();
@@ -788,6 +791,53 @@ void alarmSetting() {
   
   if (new_alarm != settings.alarm) {
     settings.alarm = new_alarm;
+    saveSettings();
+    lcd.setCursor(11, 1);
+    lcd.print("SAVED");
+    delay(1500);
+  }
+}
+
+// ratio setting
+void ratioSetting() { 
+  clearDisplay();  
+  lcd.print("Set Ratio?");
+  lcd.setCursor(0, 1);
+  lcd.print("Now "); 
+  lcd.print(settings.ratio, 2); 
+
+  long time = millis();
+  word new_ratio = settings.ratio;
+  
+  while (millis() < time + BUTTON_WAIT) { 
+    boolean pushed = false;
+    
+    if (readButton(INT_BUTTON_PIN) == LOW) { 
+      pushed = true;
+      new_ratio--;
+      if (new_ratio < 0) {
+        new_ratio = 0;
+      }
+    }
+
+    if (readButton(MODE_BUTTON_PIN) == LOW) { 
+      pushed = true;
+      new_ratio += 10;
+    }
+
+    if (pushed) {
+      lcd.setCursor(0, 1); 
+      lcd.print("                ");
+      lcd.setCursor(0, 1);
+      lcd.print(new_ratio); 
+  
+      time = millis();
+      delay(100);
+    }
+  } 
+  
+  if (new_ratio != settings.ratio) {
+    settings.ratio = new_ratio;
     saveSettings();
     lcd.setCursor(11, 1);
     lcd.print("SAVED");
