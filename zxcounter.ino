@@ -12,7 +12,7 @@
 
 #define BUTTON_WAIT       2000     // wait until button pressed
 #define REFRESH_PERIOD    1000     // display refresh period
-#define BUTTON_PERIOD     500      // button check period
+#define BUTTON_PERIOD     100      // button check period
 #define DEBOUNCE_PERIOD   50       // button debounce period
 
 #define BLINK_DELAY       REFRESH_PERIOD / 2
@@ -201,7 +201,7 @@ void loop() {
       if (mode < MODE_1S_STATS || mode > MODE_10M_STATS) {
         mode = MODE_1S_STATS;
 
-        // redraw display and scale
+        // redraw scale
         printScale();      
       } else {
         // cycle alt displays
@@ -211,6 +211,10 @@ void loop() {
           mode = MODE_1S_STATS;
         }
       }
+
+      // refresh display
+      refreshDisplay();
+      delay(500);
     }
     
     // if mode button was pressed
@@ -226,8 +230,10 @@ void loop() {
         }
       }
 
-      // redraw display and scale
+      // redraw scale and display
       printScale();      
+      refreshDisplay();
+      delay(500);
     }
   }    
     
@@ -239,61 +245,66 @@ void loop() {
     // check if alarm must be turned on
     checkAlarm();
 
-    switch (mode) {
-      case MODE_AUTO_STATS:
-        displayAutoStats();
-        break;
+    // refresh display
+    refreshDisplay();
+  }
+}
 
-      case MODE_ALL_STATS:
-        // display stats within all time
-        displayAllStats();
-        break;
+void refreshDisplay() {
+  switch (mode) {
+    case MODE_AUTO_STATS:
+      displayAutoStats();
+      break;
 
-      case MODE_MAX:
-        // display max CPM and dose
-        displayMax();
-        break;
+    case MODE_ALL_STATS:
+      // display stats within all time
+      displayAllStats();
+      break;
 
-      case MODE_DOSE:
-        // display total count and accumulated Sv
-        displayDose();
-        break;
+    case MODE_MAX:
+      // display max CPM and dose
+      displayMax();
+      break;
 
-      case MODE_1S_STATS:
-        // display 1 sec stats
-        displayStats(counts_1s, true, 1, false);
-        break;
+    case MODE_DOSE:
+      // display total count and accumulated Sv
+      displayDose();
+      break;
 
-      case MODE_5S_STATS:
-        // display 5 sec stats
-        displayStats(get5sCPS(), counts_5s_ready, 5, false);
-        break;
+    case MODE_1S_STATS:
+      // display 1 sec stats
+      displayStats(counts_1s, true, 1, false);
+      break;
 
-      case MODE_10S_STATS:
-        // display 10 sec stats
-        displayStats(get10sCPS(), counts_10s_ready, 10, false);
-        break;
+    case MODE_5S_STATS:
+      // display 5 sec stats
+      displayStats(get5sCPS(), counts_5s_ready, 5, false);
+      break;
 
-      case MODE_30S_STATS:
-        // display 30 sec stats
-        displayStats(get30sCPS(), counts_30s_ready, 30, false);
-        break;
+    case MODE_10S_STATS:
+      // display 10 sec stats
+      displayStats(get10sCPS(), counts_10s_ready, 10, false);
+      break;
 
-      case MODE_1M_STATS:
-        // display 1 min stats
-        displayStats(get1mCPS(), counts_1m_ready, 1, true);
-        break;
+    case MODE_30S_STATS:
+      // display 30 sec stats
+      displayStats(get30sCPS(), counts_30s_ready, 30, false);
+      break;
 
-      case MODE_5M_STATS:
-        // display 5 min stats
-        displayStats(get5mCPS(), counts_5m_ready, 5, true);
-        break;
+    case MODE_1M_STATS:
+      // display 1 min stats
+      displayStats(get1mCPS(), counts_1m_ready, 1, true);
+      break;
 
-      case MODE_10M_STATS:
-        // display 10 min stats
-        displayStats(get10mCPS(), counts_10m_ready, 10, true);
-        break;
-    }
+    case MODE_5M_STATS:
+      // display 5 min stats
+      displayStats(get5mCPS(), counts_5m_ready, 5, true);
+      break;
+
+    case MODE_10M_STATS:
+      // display 10 min stats
+      displayStats(get10mCPS(), counts_10m_ready, 10, true);
+      break;
   }
 }
 
