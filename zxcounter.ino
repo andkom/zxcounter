@@ -58,10 +58,10 @@ volatile unsigned long count_5s;
 volatile unsigned long count_10s;
 
 // default startup mode
-unsigned int mode = MODE_AUTO_STATS;
+byte mode = MODE_AUTO_STATS;
 
 // alarm setting
-float alarm_usv = 1.;
+float alarm_usv = 0;
 boolean alarm_enabled = false;
 
 // total counts
@@ -376,7 +376,7 @@ void displayAutoStats() {
 }
 
 // displays stats within period
-void displayStats(float cps, boolean ready, int period, boolean minutes) {
+void displayStats(float cps, boolean ready, byte period, boolean minutes) {
   // convert CPS to CPM
   float cpm = cps * 60.;
   
@@ -507,10 +507,10 @@ void displayDose() {
 // prints auto scaled time
 void printTime(unsigned long sec) {
   char str[6];
-  int days = sec / 86400;
-  int hours = (sec % 86400) / 3600;
-  int minutes = ((sec % 86400) % 3600) / 60;
-  int seconds = ((sec % 86400) % 3600) % 60;
+  word days = sec / 86400;
+  word hours = (sec % 86400) / 3600;
+  word minutes = ((sec % 86400) % 3600) / 60;
+  word seconds = ((sec % 86400) % 3600) % 60;
   
   if (days) {
     sprintf(str, "%02dd%02d", days, hours);
@@ -545,7 +545,7 @@ void printSv(float usv) {
 }
 
 // prints auto scaled dose
-void printDose(float usv, int base) {
+void printDose(float usv, byte base) {
   if (usv >= 500000) {
     lcd.print(usv / 1000000., base);
   } else if (usv >= 500) {
@@ -556,7 +556,7 @@ void printDose(float usv, int base) {
 }
 
 // prints auto scaled period
-void printPeriod(int period, boolean minutes) {
+void printPeriod(byte period, boolean minutes) {
   if (period < 10) {
     lcd.print(" ");
   }
@@ -571,17 +571,17 @@ void printPeriod(int period, boolean minutes) {
 }
 
 // prints analog bar
-void printBar(float value, float max, unsigned int blocks) {
+void printBar(float value, float max, byte blocks) {
   if (value > max) {
     value = max;
   }
   
   float scaler = max / float(blocks * 5);
   float bar_value = value / scaler;
-  unsigned int full_blocks = int(bar_value) / blocks;
-  unsigned int prtl_blocks = int(bar_value) % blocks;
+  byte full_blocks = byte(bar_value) / blocks;
+  byte prtl_blocks = byte(bar_value) % blocks;
 
-  for (int i = 0; i < full_blocks; i++) {
+  for (byte i = 0; i < full_blocks; i++) {
     lcd.write(5);
   }
   
@@ -639,27 +639,27 @@ void printScale() {
 void resetCounts() {
   counts_1s = 0;
 
-  for (int i = 0; i < COUNTS_5S_LEN; i++) {
+  for (byte i = 0; i < COUNTS_5S_LEN; i++) {
     counts_5s[i] = 0;
   }
 
-  for (int i = 0; i < COUNTS_10S_LEN; i++) {
+  for (byte i = 0; i < COUNTS_10S_LEN; i++) {
     counts_10s[i] = 0;
   }
 
-  for (int i = 0; i < COUNTS_30S_LEN; i++) {
+  for (byte i = 0; i < COUNTS_30S_LEN; i++) {
     counts_30s[i] = 0;
   }
 
-  for (int i = 0; i < COUNTS_1M_LEN; i++) {
+  for (byte i = 0; i < COUNTS_1M_LEN; i++) {
     counts_1m[i] = 0;
   }
 
-  for (int i = 0; i < COUNTS_5M_LEN; i++) {
+  for (byte i = 0; i < COUNTS_5M_LEN; i++) {
     counts_5m[i] = 0;
   }
 
-  for (int i = 0; i < COUNTS_10M_LEN; i++) {
+  for (byte i = 0; i < COUNTS_10M_LEN; i++) {
     counts_10m[i] = 0;
   }
 
@@ -772,9 +772,8 @@ void alarmSetting() {
     alarm_usv = new_alarm_usv;
     lcd.setCursor(11, 1);
     lcd.print("SAVED");
+    delay(1500);
   }
-  
-  delay(1500);
 }
 
 // triggers on interrupt event
@@ -905,11 +904,11 @@ float get5sCPS() {
   float sum = 0;
   
   // check if 5 sec stats is ready
-  int max = counts_5s_ready ? COUNTS_5S_LEN : counts_5s_index;
+  byte max = counts_5s_ready ? COUNTS_5S_LEN : counts_5s_index;
   
   // division by zero check
   if (max) {
-    for (int i = 0; i < max; i++) {
+    for (byte i = 0; i < max; i++) {
       sum += counts_5s[i];
     }
     
@@ -924,11 +923,11 @@ float get10sCPS() {
   float sum = 0;
   
   // check if 10 sec stats is ready
-  int max = counts_10s_ready ? COUNTS_10S_LEN : counts_10s_index;
+  byte max = counts_10s_ready ? COUNTS_10S_LEN : counts_10s_index;
   
   // division by zero check
   if (max) {
-    for (int i = 0; i < max; i++) {
+    for (byte i = 0; i < max; i++) {
       sum += counts_10s[i];
     }
     
@@ -943,11 +942,11 @@ float get30sCPS() {
   float sum = 0;
   
   // check if 30 sec stats is ready
-  int max = counts_30s_ready ? COUNTS_30S_LEN : counts_30s_index;
+  byte max = counts_30s_ready ? COUNTS_30S_LEN : counts_30s_index;
 
   // division by zero check
   if (max) {
-    for (int i = 0; i < max; i++) {
+    for (byte i = 0; i < max; i++) {
       sum += counts_30s[i];
     }
 
@@ -962,11 +961,11 @@ float get1mCPS() {
   float sum = 0;
   
   // check if 1 min stats is ready
-  int max = counts_1m_ready ? COUNTS_1M_LEN : counts_1m_index;
+  byte max = counts_1m_ready ? COUNTS_1M_LEN : counts_1m_index;
   
   // division by zero check
   if (max) {
-    for (int i = 0; i < max; i++) {
+    for (byte i = 0; i < max; i++) {
       sum += counts_1m[i];
     }
     
@@ -981,11 +980,11 @@ float get5mCPS() {
   float sum = 0;
   
   // check if 5 min stats is ready
-  int max = counts_5m_ready ? COUNTS_5M_LEN : counts_5m_index;
+  byte max = counts_5m_ready ? COUNTS_5M_LEN : counts_5m_index;
   
   // division by zero check
   if (max) {
-    for (int i = 0; i < max; i++) {
+    for (byte i = 0; i < max; i++) {
       sum += counts_5m[i];
     }
     
@@ -1000,11 +999,11 @@ float get10mCPS() {
   float sum = 0;
   
   // check if 10 min stats is ready
-  int max = counts_10m_ready ? COUNTS_10M_LEN : counts_10m_index;
+  byte max = counts_10m_ready ? COUNTS_10M_LEN : counts_10m_index;
   
   // division by zero check
   if (max) {
-    for (int i = 0; i < max; i++) {
+    for (byte i = 0; i < max; i++) {
       sum += counts_10m[i];
     }
     
@@ -1049,7 +1048,7 @@ int getAvailRAM() {
 }
 
 // reads LOW ACTIVE push buttom and debounces
-byte readButton(int button_pin) {
+byte readButton(byte button_pin) {
   if (digitalRead(button_pin)) {
     // still high, nothing happened, get out
     return HIGH;
