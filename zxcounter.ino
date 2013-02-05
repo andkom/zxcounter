@@ -3,8 +3,7 @@
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
 
-#define VERSION           1.2      // version of this software
-#define RATIO             175.43   // CPM to uSv converion ratio
+#define VERSION           1.3      // version of this software
 
 #define PERIOD_1S         1000
 #define PERIOD_5S         5000
@@ -35,9 +34,9 @@
 #define INT_BUTTON_PIN    11       // button to togle interval
 
 #define ALARM_PIN         15       // Outputs HIGH when alarm triggered
-#define ALARM_ADDR        8        // adress of alarm setting in EEPROM
-#define ALARM_USV         5.       // default uSv
 #define ALARM_MAX         100.     // max uSv can be set
+
+#define SETTINGS_ADDR     32       // settings addr in EEPROM
 
 #define MODE_AUTO_STATS   0
 #define MODE_ALL_STATS    1
@@ -52,6 +51,16 @@
 #define MODE_5M_STATS     9
 #define MODE_10M_STATS    10
 
+struct Settings {
+  float alarm;
+  float ratio;
+  byte unit;
+} settings, default_settings = {
+  0,      // alarm is off by default
+  175.43, // CPM to uSv ratio for SBM-20
+  0       // Sv is by default
+};
+
 // counts within 1 sec, 5 sec and 10 sec
 volatile unsigned long count_1s;
 volatile unsigned long count_5s;
@@ -60,8 +69,7 @@ volatile unsigned long count_10s;
 // default startup mode
 byte mode = MODE_AUTO_STATS;
 
-// alarm setting
-float alarm_usv = 0;
+// alarm enabled flag
 boolean alarm_enabled = false;
 
 // total counts
@@ -154,7 +162,7 @@ void setup() {
   lcd.createChar(5, bar_5);  
   
   // read EEPROM settings
-  readEEPROM();
+  loadSettings();
   
   // print software version
   clearDisplay();
@@ -347,7 +355,7 @@ void displayAutoStats() {
   avg_cpm = avg_cps * 60.;
   
   // convert CPM to uSv
-  avg_usv = avg_cpm / RATIO;
+  avg_usv = avg_cpm / settings.ratio;
     
   // update CPM
   lcd.setCursor(4, 0);
@@ -362,7 +370,7 @@ void displayAutoStats() {
   if (alarm_enabled) {
     lcd.print("ALARM");
   } else {
-    printBar(counts_1s * 60. / RATIO, alarm_usv ? alarm_usv : ALARM_USV, 5); // max 5 chars
+    printBar(counts_1s * 60. / settings.ratio, settings.alarm ? settings.alarm : 5., 5); // max 5 chars
   }
   
   // update Sv dimension
@@ -392,7 +400,7 @@ void displayStats(float cps, boolean ready, byte period, boolean minutes) {
   float cpm = cps * 60.;
   
   // convert CPM to uSv;
-  float usv = cpm / RATIO;
+  float usv = cpm / settings.ratio;
 
   // update CPM
   lcd.setCursor(4, 0);
@@ -430,7 +438,7 @@ void displayAllStats() {
   float cpm = total / (time / 60.);
   
   // convert CPM to uSv;
-  float usv = cpm / RATIO;
+  float usv = cpm / settings.ratio;
 
   // update CPM
   lcd.setCursor(4, 0);
@@ -456,7 +464,7 @@ void displayAllStats() {
 // displays max count and max Sv
 void displayMax() {
   // convert CPM to uSv
-  float max_usv = max_cpm / RATIO;
+  float max_usv = max_cpm / settings.ratio;
 
   // update CPM
   lcd.setCursor(4, 0);
@@ -488,7 +496,7 @@ void displayDose() {
     avg_cpm = total / (time / 60.);
     
     // calculate average uSv/h
-    avg_usv = avg_cpm / RATIO;
+    avg_usv = avg_cpm / settings.ratio;
     
     // calulate accumulated uSv
     usv = avg_usv * (time / 3600.);
@@ -688,10 +696,10 @@ void resetCounts() {
 void checkAlarm() {
   float usv;
   
-  if (alarm_usv) {
-    usv = get5sCPS() * 60. / RATIO;
+  if (settings.alarm) {
+    usv = get5sCPS() * 60. / settings.ratio;
     
-    if (usv >= alarm_usv) {
+    if (usv >= settings.alarm) {
       setAlarm(true);
     } else if (alarm_enabled) {
       setAlarm(false);
@@ -719,45 +727,45 @@ void alarmSetting() {
   clearDisplay();  
   lcd.print("Set Alarm?");
   lcd.setCursor(0, 1);
-  if (alarm_usv) {
+  if (settings.alarm) {
     lcd.print("Now "); 
-    lcd.print(alarm_usv, 2); 
+    lcd.print(settings.alarm, 2); 
     lcd.print(" uSv"); 
   } else {
     lcd.print("Now Off"); 
   }
 
   long time = millis();
-  float new_alarm_usv = alarm_usv;
+  float new_alarm = settings.alarm;
   
   while (millis() < time + BUTTON_WAIT) { 
     boolean pushed = false;
     
     if (readButton(INT_BUTTON_PIN) == LOW) { 
       pushed = true;
-      if (new_alarm_usv <= 1) {
-        new_alarm_usv = new_alarm_usv - 0.1;
-      } else if (new_alarm_usv <= 10) {
-        new_alarm_usv = new_alarm_usv - 1;
+      if (new_alarm <= 1) {
+        new_alarm -= 0.1;
+      } else if (new_alarm <= 10) {
+        new_alarm -= 1;
       } else {
-        new_alarm_usv = new_alarm_usv - 10;
+        new_alarm -= 10;
       }
-      if (new_alarm_usv < 0) {
-        new_alarm_usv = ALARM_MAX;
+      if (new_alarm < 0) {
+        new_alarm = ALARM_MAX;
       }
     }
 
     if (readButton(MODE_BUTTON_PIN) == LOW) { 
       pushed = true;
-      if (new_alarm_usv < 1) {
-        new_alarm_usv = new_alarm_usv + 0.1;
-      } else if (new_alarm_usv < 10) {
-        new_alarm_usv = new_alarm_usv + 1;
+      if (new_alarm < 1) {
+        new_alarm += 0.1;
+      } else if (new_alarm < 10) {
+        new_alarm += 1;
       } else {
-        new_alarm_usv = new_alarm_usv + 10;
+        new_alarm += 10;
       }
-      if (new_alarm_usv > ALARM_MAX) {
-        new_alarm_usv = 0;
+      if (new_alarm > ALARM_MAX) {
+        new_alarm = 0;
       }
     }
 
@@ -766,8 +774,8 @@ void alarmSetting() {
       lcd.print("                ");
       lcd.setCursor(0, 1);
   
-      if (new_alarm_usv) {
-        lcd.print(new_alarm_usv, 2); 
+      if (new_alarm) {
+        lcd.print(new_alarm, 2); 
         lcd.print(" uSv");
       } else {
         lcd.print("Alarm Off"); 
@@ -778,9 +786,9 @@ void alarmSetting() {
     }
   } 
   
-  if (new_alarm_usv != alarm_usv) {
-    EEPROM.write(ALARM_ADDR, new_alarm_usv * 10.);
-    alarm_usv = new_alarm_usv;
+  if (new_alarm != settings.alarm) {
+    settings.alarm = new_alarm;
+    saveSettings();
     lcd.setCursor(11, 1);
     lcd.print("SAVED");
     delay(1500);
@@ -1031,10 +1039,25 @@ void clearDisplay() {
   lcd.setCursor(0,0); // do it again for the OLED
 }
 
-void readEEPROM() {
-  byte alarm_setting = EEPROM.read(ALARM_ADDR);
-  if (alarm_setting == 255) alarm_setting = 0; // deal with virgin EEPROM
-  alarm_usv = alarm_setting / 10.;
+void loadSettings() {
+  for (unsigned int i = 0; i < sizeof(settings); i++) {
+      *((char*) &settings + i) = EEPROM.read(SETTINGS_ADDR + i);
+  }
+  if (isnan(settings.alarm)) {
+    settings.alarm = default_settings.alarm;
+  }
+  if (isnan(settings.ratio)) {
+    settings.ratio = default_settings.ratio;
+  }
+  if (settings.unit == 255) {
+    settings.unit = default_settings.unit;
+  }
+}
+
+void saveSettings() {
+ for (unsigned int i = 0; i < sizeof(settings); i++) {
+    EEPROM.write(SETTINGS_ADDR + i, *((char*) &settings + i));
+ }
 }
 
 long readVCC() {
