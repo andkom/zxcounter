@@ -217,7 +217,7 @@ void setup() {
   
   while (millis() < time + PERIOD_BUTTON_WAIT) {
     // if mode button pressed during startup then enter settings
-    if (readButton(PIN_BUTTON_MODE) == LOW) {
+    if (readButton(PIN_BUTTON_ALT) == LOW || readButton(PIN_BUTTON_MODE) == LOW) {
       // unit setting
       unitSetting();
     
@@ -1255,6 +1255,7 @@ void saveSettings() {
   }
 }
 
+// return current VCC voltage in mV
 long readVCC() {
   long result;
   // Read 1.1V reference against AVcc
@@ -1268,6 +1269,7 @@ long readVCC() {
   return result;
 }
 
+// returns available RAM in bytes
 int getAvailRAM() { 
   int memSize = 2048; // if ATMega328
   byte *buff;
