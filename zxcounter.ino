@@ -3,60 +3,62 @@
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
 
-#define VERSION           1.3      // version of this software
+#define VERSION               1.3      // version of this software
 
-#define PERIOD_1S         1000
-#define PERIOD_5S         5000
-#define PERIOD_10S        10000
+#define PERIOD_1S             1000
+#define PERIOD_5S             5000
+#define PERIOD_10S            10000
 
-#define BUTTON_WAIT       2000     // wait until button pressed
-#define REFRESH_PERIOD    1000     // display refresh period
-#define BUTTON_PERIOD     100      // button check period
-#define DEBOUNCE_PERIOD   50       // button debounce period
+#define PERIOD_REFRESH        1000     // display refresh period
+#define PERIOD_BUTTON_WAIT    2000     // wait until button pressed
+#define PERIOD_BUTTON_CHECK   100      // button check period
 
-#define BLINK_DELAY       REFRESH_PERIOD / 2
+#define DELAY_BLINK           PERIOD_REFRESH / 2
+#define DELAY_DEBOUNCE        50       // button debounce delay
 
-#define COUNTS_5S_LEN     5        // 5 sec stats array length (5 data points per second)
-#define COUNTS_10S_LEN    10       // 10 sec stats array lenght (10 data points per second) 
-#define COUNTS_30S_LEN    30       // 30 sec stats array lenght (10 data points per second) 
-#define COUNTS_1M_LEN     60       // 1 min stats array lenght (60 data points per second) 
-#define COUNTS_5M_LEN     60       // 5 min stats array lenght (60 data points per 5 seconds) 
-#define COUNTS_10M_LEN    60       // 10 min stats array lenght (60 data points per 10 seconds) 
+#define COUNTS_5S_LEN         5        // 5 sec stats array length (5 data points per second)
+#define COUNTS_10S_LEN        10       // 10 sec stats array lenght (10 data points per second) 
+#define COUNTS_30S_LEN        30       // 30 sec stats array lenght (10 data points per second) 
+#define COUNTS_1M_LEN         60       // 1 min stats array lenght (60 data points per second) 
+#define COUNTS_5M_LEN         60       // 5 min stats array lenght (60 data points per 5 seconds) 
+#define COUNTS_10M_LEN        60       // 10 min stats array lenght (60 data points per 10 seconds) 
 
-#define CPM_LIMIT_1S      7500     // min CPM to display 1 sec stats
-#define CPM_LIMIT_5S      1500     // min CPM to display 5 sec stats
-#define CPM_LIMIT_10S     300      // min CPM to display 10 sec stats     
-#define CPM_LIMIT_30S     60       // min CPM to displat 30 sec stats
+#define CPM_LIMIT_1S          7500     // min CPM to display 1 sec stats
+#define CPM_LIMIT_5S          1500     // min CPM to display 5 sec stats
+#define CPM_LIMIT_10S         300      // min CPM to display 10 sec stats     
+#define CPM_LIMIT_30S         60       // min CPM to displat 30 sec stats
 
-#define MODE_BUTTON_PIN   10       // button to toggle display mode
-#define INT_BUTTON_PIN    11       // button to togle interval
-#define ALARM_PIN         15       // outputs HIGH when alarm triggered
+#define PIN_BUTTON_MODE       10       // button to toggle mode
+#define PIN_BUTTON_ALT        11       // optional button to toggle mode backwards
+#define PIN_ALARM             15       // outputs HIGH when alarm triggered
 
-#define SETTINGS_ADDR     32       // settings addr in EEPROM
+#define ADDR_SETTINGS         32       // settings addr in EEPROM
 
-#define UNIT_SV           0        // Siverts
-#define UNIT_R            1        // Roentgens
+#define UNIT_SV               0        // Siverts
+#define UNIT_R                1        // Roentgens
 
-#define DEFAULT_UNIT      UNIT_SV  // siverts by default
-#define DEFAULT_ALARM     5.       // alarm is off by default
-#define DEFAULT_RATIO     175.     // default CPM to uSv/h ratio for SBM-20
+#define DEFAULT_UNIT          UNIT_SV  // siverts by default
+#define DEFAULT_ALARM         5.       // alarm is off by default
+#define DEFAULT_RATIO         175.     // default CPM to uSv/h ratio for SBM-20
 
-#define MAX_TIME          8640000  // limit time to 100 days
-#define MAX_ALARM         100      // uSv/h
-#define MAX_RATIO         2000     // CPM to uSv/h
+#define MAX_TIME              8640000  // limit time to 100 days
+#define MAX_ALARM             100      // uSv/h
+#define MAX_RATIO             2000     // CPM to uSv/h
 
-#define MODE_AUTO_STATS   0
-#define MODE_ALL_STATS    1
-#define MODE_MAX          2
-#define MODE_DOSE         3
+// modes toggled via mode button
+#define MODE_STATS_AUTO       0        // show stats and bar with auto interval
+#define MODE_STATS_1S         1        // show stats within 1 second
+#define MODE_STATS_5S         2        // show stats within 5 seconds
+#define MODE_STATS_10S        3        // show stats within 10 seconds
+#define MODE_STATS_30S        4        // show stats within 30 seconds
+#define MODE_STATS_1M         5        // show stats within 1 minute
+#define MODE_STATS_5M         6        // show stats within 5 minutes
+#define MODE_STATS_10M        7        // show stats within 10 minutes
+#define MODE_STATS_ALL        8        // show stats for all time
+#define MODE_MAX              9        // show max dose
+#define MODE_DOSE             10       // show accumulated dose
 
-#define MODE_1S_STATS     4
-#define MODE_5S_STATS     5
-#define MODE_10S_STATS    6
-#define MODE_30S_STATS    7
-#define MODE_1M_STATS     8
-#define MODE_5M_STATS     9
-#define MODE_10M_STATS    10
+// alternative modes toggled via interval button
 
 struct Settings {
   byte unit;
@@ -70,7 +72,7 @@ volatile unsigned long count_5s;
 volatile unsigned long count_10s;
 
 // default startup mode
-byte mode = MODE_AUTO_STATS;
+byte mode = MODE_STATS_AUTO;
 
 // conversion factor depends on unit
 float factor = 1.;
@@ -148,13 +150,13 @@ void setup() {
   attachInterrupt(0, click, FALLING);
   
   // setup buttons
-  pinMode(MODE_BUTTON_PIN, INPUT);
-  pinMode(INT_BUTTON_PIN, INPUT);
-  digitalWrite(MODE_BUTTON_PIN, HIGH);
-  digitalWrite(INT_BUTTON_PIN, HIGH);
+  pinMode(PIN_BUTTON_MODE, INPUT);
+  pinMode(PIN_BUTTON_ALT, INPUT);
+  digitalWrite(PIN_BUTTON_MODE, HIGH);
+  digitalWrite(PIN_BUTTON_ALT, HIGH);
   
   // setup alarm PIN
-  pinMode(ALARM_PIN, OUTPUT); 
+  pinMode(PIN_ALARM, OUTPUT); 
   
   // init 16x2 display
   lcd.begin(16,2);
@@ -180,7 +182,7 @@ void setup() {
   delay(1500);
 
   // if mode button pressed during startup then show debug and settings
-  if (readButton(MODE_BUTTON_PIN) == LOW) {
+  if (readButton(PIN_BUTTON_MODE) == LOW) {
     // print avail RAM
     lcd.setCursor(0, 1);
     lcd.print("RAM: ");
@@ -193,6 +195,7 @@ void setup() {
     lcd.print("VCC: ");
     lcd.print(vcc/1000., 2);
     lcd.print("V");
+    delay(1500);
   
     // unit setting
     unitSetting();
@@ -215,53 +218,45 @@ void loop() {
   // collect stats data
   collectData();  
 
-  // check button state each BUTTON_PERIOD milliseconds
-  if (millis() >= last_button_time + BUTTON_PERIOD) {
+  // check button state each PERIOD_BUTTON_CHECK milliseconds
+  if (millis() >= last_button_time + PERIOD_BUTTON_CHECK) {
     // update last button check time
     last_button_time = millis();
-    
-    if (readButton(INT_BUTTON_PIN) == LOW) {
-      if (mode < MODE_1S_STATS || mode > MODE_10M_STATS) {
-        mode = MODE_1S_STATS;
+    boolean pushed = false;
 
-        // redraw scale
-        printScale();      
-      } else {
-        // cycle alt displays
+    // if mode button was pressed
+    if (readButton(PIN_BUTTON_MODE) == LOW) {
+      // cycle modes forward
+      pushed = true;
+      if (mode >= MODE_DOSE) {
+        mode = MODE_STATS_AUTO;
+      } else {            
         mode++;
-        
-        if (mode > MODE_10M_STATS) {
-          mode = MODE_1S_STATS;
-        }
       }
+    }
+    
+    if (readButton(PIN_BUTTON_ALT) == LOW) {
+      // cycle modes back
+      pushed = true;
+      if (mode <= MODE_STATS_AUTO) {
+        mode = MODE_DOSE;
+      } else {
+        mode--;
+      }
+    }
+
+    if (pushed) {
+      // redraw display and scale
+      printScale();      
 
       // refresh display
       refreshDisplay();
       delay(500);
     }
-    
-    // if mode button was pressed
-    if (readButton(MODE_BUTTON_PIN) == LOW) {
-      if (mode < MODE_AUTO_STATS || mode > MODE_DOSE) {
-        mode = MODE_AUTO_STATS;
-      } else {
-        // cycle modes
-        mode++;
-
-        if (mode > MODE_DOSE) {
-          mode = 0;
-        }
-      }
-
-      // redraw scale and display
-      printScale();      
-      refreshDisplay();
-      delay(500);
-    }
   }    
     
-  // refresh display each REFRESH_PERIOD milliseconds
-  if (millis() >= last_refresh + REFRESH_PERIOD) {
+  // refresh display each PERIOD_REFRESH milliseconds
+  if (millis() >= last_refresh + PERIOD_REFRESH) {
     // update last refresh time
     last_refresh = millis();
     
@@ -275,11 +270,46 @@ void loop() {
 
 void refreshDisplay() {
   switch (mode) {
-    case MODE_AUTO_STATS:
+    case MODE_STATS_AUTO:
       displayAutoStats();
       break;
 
-    case MODE_ALL_STATS:
+    case MODE_STATS_1S:
+      // display 1 sec stats
+      displayStats(counts_1s, true, 1, false);
+      break;
+
+    case MODE_STATS_5S:
+      // display 5 sec stats
+      displayStats(get5sCPS(), counts_5s_ready, 5, false);
+      break;
+
+    case MODE_STATS_10S:
+      // display 10 sec stats
+      displayStats(get10sCPS(), counts_10s_ready, 10, false);
+      break;
+
+    case MODE_STATS_30S:
+      // display 30 sec stats
+      displayStats(get30sCPS(), counts_30s_ready, 30, false);
+      break;
+
+    case MODE_STATS_1M:
+      // display 1 min stats
+      displayStats(get1mCPS(), counts_1m_ready, 1, true);
+      break;
+
+    case MODE_STATS_5M:
+      // display 5 min stats
+      displayStats(get5mCPS(), counts_5m_ready, 5, true);
+      break;
+
+    case MODE_STATS_10M:
+      // display 10 min stats
+      displayStats(get10mCPS(), counts_10m_ready, 10, true);
+      break;
+
+    case MODE_STATS_ALL:
       // display stats within all time
       displayAllStats();
       break;
@@ -292,41 +322,6 @@ void refreshDisplay() {
     case MODE_DOSE:
       // display total count and accumulated dose
       displayDose();
-      break;
-
-    case MODE_1S_STATS:
-      // display 1 sec stats
-      displayStats(counts_1s, true, 1, false);
-      break;
-
-    case MODE_5S_STATS:
-      // display 5 sec stats
-      displayStats(get5sCPS(), counts_5s_ready, 5, false);
-      break;
-
-    case MODE_10S_STATS:
-      // display 10 sec stats
-      displayStats(get10sCPS(), counts_10s_ready, 10, false);
-      break;
-
-    case MODE_30S_STATS:
-      // display 30 sec stats
-      displayStats(get30sCPS(), counts_30s_ready, 30, false);
-      break;
-
-    case MODE_1M_STATS:
-      // display 1 min stats
-      displayStats(get1mCPS(), counts_1m_ready, 1, true);
-      break;
-
-    case MODE_5M_STATS:
-      // display 5 min stats
-      displayStats(get5mCPS(), counts_5m_ready, 5, true);
-      break;
-
-    case MODE_10M_STATS:
-      // display 10 min stats
-      displayStats(get10mCPS(), counts_10m_ready, 10, true);
       break;
   }
 }
@@ -390,9 +385,7 @@ void displayAutoStats() {
   
   // update dose unit
   lcd.setCursor(0, 1);
-  lcd.print("     "); // erase 5 chars
-  lcd.setCursor(0, 1);
-  printUnit(avg_dose, true); // max 5 chars
+  printUnit(avg_dose); // 1 char
   
   // update dose
   lcd.setCursor(6, 1);
@@ -401,7 +394,7 @@ void displayAutoStats() {
   
   // blink while data is not ready
   if (!ready) {
-    delay(BLINK_DELAY);
+    delay(DELAY_BLINK);
   }
 
   printDose(avg_dose, 2); // max 6 chars
@@ -431,9 +424,7 @@ void displayStats(float cps, boolean ready, byte period, boolean minutes) {
   
   // update dose unit
   lcd.setCursor(0, 1);
-  lcd.print("     "); // erase 5 chars
-  lcd.setCursor(0, 1);
-  printUnit(dose, true); // max 5 chars
+  printUnit(dose); // 1 char
   
   // update dose
   lcd.setCursor(6, 1);
@@ -442,7 +433,7 @@ void displayStats(float cps, boolean ready, byte period, boolean minutes) {
   
   // blink while data is not ready
   if (!ready) {
-    delay(BLINK_DELAY);
+    delay(DELAY_BLINK);
   }
   
   printDose(dose, 2); // max 6 chars
@@ -453,11 +444,15 @@ void displayStats(float cps, boolean ready, byte period, boolean minutes) {
 
 // displays stats within all time
 void displayAllStats() {
-  // calculate CPM
-  float cpm = total / (time / 60.);
+  float cpm = 0, dose = 0;
   
-  // convert CPM to equivalent dose;
-  float dose = cpm / settings.ratio * factor;
+  if (time) {
+    // calculate CPM
+    float cpm = total / (time / 60.);
+    
+    // convert CPM to equivalent dose;
+    float dose = cpm / settings.ratio * factor;
+  }
 
   // update CPM
   lcd.setCursor(4, 0);
@@ -471,9 +466,7 @@ void displayAllStats() {
   
   // update dose unit
   lcd.setCursor(0, 1);
-  lcd.print("     "); // erase 5 chars
-  lcd.setCursor(0, 1);
-  printUnit(dose, true); // max 5 chars
+  printUnit(dose); // 1 char
   
   // update dose
   lcd.setCursor(6, 1);
@@ -499,9 +492,7 @@ void displayMax() {
   
   // update dose unit
   lcd.setCursor(0, 1);
-  lcd.print("     "); // erase 5 chars
-  lcd.setCursor(0, 1);
-  printUnit(max_dose, true); // max 5 chars
+  printUnit(max_dose); // 1 char
   
   // update dose
   lcd.setCursor(6, 1);
@@ -537,9 +528,7 @@ void displayDose() {
   
   // update dose unit
   lcd.setCursor(0, 1);
-  lcd.print("     "); // erase 5 chars
-  lcd.setCursor(0, 1);
-  printUnit(dose, false); // max 3 chars
+  printUnit(dose); // 1 char
   
   // update dose
   lcd.setCursor(4, 1);
@@ -577,20 +566,14 @@ void printCPM(unsigned long cpm) {
   }
 }
 
-// prints equivalent dose unit
-void printUnit(float dose, boolean per_hour) {
-  if (dose >= 500 && dose < 500000) {
+// prints unit
+void printUnit(float dose) {
+  if (dose >= 500000) {
+    lcd.print(" ");
+  } else if (dose >= 500) {
     lcd.print("m");
   } else {
     lcd.print("u");
-  }
-  if (settings.unit == UNIT_SV) {
-    lcd.print("Sv");
-  } else if (settings.unit == UNIT_R) {
-    lcd.print("R");
-  }
-  if (per_hour) {
-    lcd.print("/h");
   }
 }
 
@@ -642,14 +625,14 @@ void printBar(float value, float max, byte blocks) {
 void printScale() {
   clearDisplay();
   switch (mode) {
-    case MODE_AUTO_STATS:
-    case MODE_1S_STATS:
-    case MODE_5S_STATS:
-    case MODE_10S_STATS:
-    case MODE_30S_STATS:
-    case MODE_1M_STATS:
-    case MODE_5M_STATS:
-    case MODE_10M_STATS:
+    case MODE_STATS_AUTO:
+    case MODE_STATS_1S:
+    case MODE_STATS_5S:
+    case MODE_STATS_10S:
+    case MODE_STATS_30S:
+    case MODE_STATS_1M:
+    case MODE_STATS_5M:
+    case MODE_STATS_10M:
       lcd.setCursor(0, 0);
       lcd.print("CPM ?");
       lcd.setCursor(0, 1);
@@ -660,7 +643,7 @@ void printScale() {
       }
       break;
 
-    case MODE_ALL_STATS:
+    case MODE_STATS_ALL:
       lcd.setCursor(0, 0);
       lcd.print("CPM ?");
       lcd.setCursor(0, 1);
@@ -760,11 +743,11 @@ void checkAlarm() {
 void setAlarm(boolean enabled) {
   if (enabled) {
     // turn on alarm (set alarm pin to Vcc) 
-    digitalWrite(ALARM_PIN, HIGH);
+    digitalWrite(PIN_ALARM, HIGH);
     alarm_enabled = true;
   } else {
     // turn off alarm (set alarm pin to Gnd)
-    digitalWrite(ALARM_PIN, LOW);
+    digitalWrite(PIN_ALARM, LOW);
     alarm_enabled = false;
   }
 }
@@ -784,11 +767,11 @@ void unitSetting() {
     lcd.print("Unknown");
   }
 
-  long time = millis();
+  unsigned long time = millis();
   byte new_unit = settings.unit;
   
-  while (millis() < time + BUTTON_WAIT) { 
-    if (readButton(INT_BUTTON_PIN) == LOW || readButton(MODE_BUTTON_PIN) == LOW) { 
+  while (millis() < time + PERIOD_BUTTON_WAIT) { 
+    if (readButton(PIN_BUTTON_ALT) == LOW || readButton(PIN_BUTTON_MODE) == LOW) { 
       if (new_unit == UNIT_SV) {
         new_unit = UNIT_R;
       } else {
@@ -831,13 +814,13 @@ void alarmSetting() {
     lcd.print("Now Off"); 
   }
 
-  long time = millis();
+  unsigned long time = millis();
   float new_alarm = settings.alarm;
   
-  while (millis() < time + BUTTON_WAIT) { 
+  while (millis() < time + PERIOD_BUTTON_WAIT) { 
     boolean pushed = false;
     
-    if (readButton(INT_BUTTON_PIN) == LOW) { 
+    if (readButton(PIN_BUTTON_ALT) == LOW) { 
       pushed = true;
       if (new_alarm <= 1) {
         new_alarm -= 0.1;
@@ -851,7 +834,7 @@ void alarmSetting() {
       }
     }
 
-    if (readButton(MODE_BUTTON_PIN) == LOW) { 
+    if (readButton(PIN_BUTTON_MODE) == LOW) { 
       pushed = true;
       if (new_alarm < 1) {
         new_alarm += 0.1;
@@ -899,13 +882,13 @@ void ratioSetting() {
   lcd.print("Now "); 
   lcd.print(settings.ratio, 0); 
 
-  long time = millis();
+  unsigned long time = millis();
   word new_ratio = settings.ratio;
   
-  while (millis() < time + BUTTON_WAIT) { 
+  while (millis() < time + PERIOD_BUTTON_WAIT) { 
     boolean pushed = false;
     
-    if (readButton(INT_BUTTON_PIN) == LOW) { 
+    if (readButton(PIN_BUTTON_ALT) == LOW) { 
       pushed = true;
       new_ratio--;
       if (new_ratio <= 0) {
@@ -913,9 +896,9 @@ void ratioSetting() {
       }
     }
 
-    if (readButton(MODE_BUTTON_PIN) == LOW) { 
+    if (readButton(PIN_BUTTON_MODE) == LOW) { 
       pushed = true;
-      new_ratio += 10;
+      new_ratio++;
       if (new_ratio > MAX_RATIO) {
         new_ratio = 0;
       }
@@ -1197,7 +1180,7 @@ void updateFactor() {
 // load settings from EEPROM
 void loadSettings() {
   for (unsigned int i = 0; i < sizeof(settings); i++) {
-      *((char*) &settings + i) = EEPROM.read(SETTINGS_ADDR + i);
+      *((char*) &settings + i) = EEPROM.read(ADDR_SETTINGS + i);
   }
   if (settings.unit > UNIT_R) {
     settings.unit = DEFAULT_UNIT;
@@ -1217,7 +1200,7 @@ void loadSettings() {
 void saveSettings() {
   updateFactor();
   for (unsigned int i = 0; i < sizeof(settings); i++) {
-    EEPROM.write(SETTINGS_ADDR + i, *((char*) &settings + i));
+    EEPROM.write(ADDR_SETTINGS + i, *((char*) &settings + i));
   }
 }
 
@@ -1250,7 +1233,7 @@ byte readButton(byte button_pin) {
   } else {
     // it's LOW - switch pushed
     // wait for debounce period
-    delay(DEBOUNCE_PERIOD);
+    delay(DELAY_DEBOUNCE);
     if (digitalRead(button_pin)) {
       // no longer pressed
       return HIGH;
