@@ -4,6 +4,7 @@
 #include <EEPROM.h>
 
 #define VERSION               1.3      // version of this software
+#define DEBUG                 true     // show VCC and available RAM at startup
 
 #define PERIOD_1S             1000
 #define PERIOD_5S             5000
@@ -36,6 +37,8 @@
 
 #define UNIT_SV               0        // Siverts
 #define UNIT_R                1        // Roentgens
+
+#define RATIO_SV_TO_R         100.     // Siverts to Roentgen ratio
 
 #define DEFAULT_UNIT          UNIT_SV  // siverts by default
 #define DEFAULT_ALARM         5.       // alarm is off by default
@@ -179,32 +182,42 @@ void setup() {
   lcd.setCursor(2, 1);
   lcd.print("Version ");
   lcd.print(VERSION);
-  delay(1500);
+  delay(2000);
 
-  // if mode button pressed during startup then show debug and settings
-  if (readButton(PIN_BUTTON_MODE) == LOW) {
+  // debug mode  
+  if (DEBUG) {
     clearDisplay();
-
     // print avail RAM
     lcd.print("RAM: ");
     lcd.print(getAvailRAM());
-
     // print VCC
     long vcc = readVCC();
     lcd.setCursor(0, 1);
     lcd.print("VCC: ");
     lcd.print(vcc / 1000., 2);
     lcd.print("V");
-    delay(1500);
+    delay(2000);
+  }
   
-    // unit setting
-    unitSetting();
+  clearDisplay();
+  lcd.print(" Press MODE to");
+  lcd.setCursor(0, 1);
+  lcd.print("  enter SETUP");
   
-    // alarm setting
-    alarmSetting();
+  unsigned long time = millis();
+  
+  while (millis() < time + PERIOD_BUTTON_WAIT) {
+    // if mode button pressed during startup then enter settings
+    if (readButton(PIN_BUTTON_MODE) == LOW) {
+      // unit setting
+      unitSetting();
     
-    // ratio setting
-    ratioSetting();
+      // alarm setting
+      alarmSetting();
+      
+      // ratio setting
+      ratioSetting();
+    }
   }
   
   // print scale
@@ -222,21 +235,11 @@ void loop() {
   if (millis() >= last_button_time + PERIOD_BUTTON_CHECK) {
     // update last button check time
     last_button_time = millis();
-    boolean pushed = false;
 
-    // if mode button was pressed
-    if (readButton(PIN_BUTTON_MODE) == LOW) {
-      // cycle modes forward
-      pushed = true;
-      if (mode >= MODE_DOSE) {
-        mode = MODE_STATS_AUTO;
-      } else {            
-        mode++;
-      }
-    }
+    boolean pushed = false;
     
+    // cycle modes back
     if (readButton(PIN_BUTTON_ALT) == LOW) {
-      // cycle modes back
       pushed = true;
       if (mode <= MODE_STATS_AUTO) {
         mode = MODE_DOSE;
@@ -245,6 +248,16 @@ void loop() {
       }
     }
 
+    // cycle modes forward
+    if (readButton(PIN_BUTTON_MODE) == LOW) {
+      pushed = true;
+      if (mode >= MODE_DOSE) {
+        mode = MODE_STATS_AUTO;
+      } else {            
+        mode++;
+      }
+    }
+    
     if (pushed) {
       // redraw display and scale
       printScale();      
@@ -763,12 +776,11 @@ void unitSetting() {
     lcd.print("Sv");
   } else if (settings.unit == UNIT_R) {
     lcd.print("R");
-  } else {
-    lcd.print("Unknown");
   }
+  delay(1000);
 
-  unsigned long time = millis();
   byte new_unit = settings.unit;
+  unsigned long time = millis();
   
   while (millis() < time + PERIOD_BUTTON_WAIT) { 
     if (readButton(PIN_BUTTON_ALT) == LOW || readButton(PIN_BUTTON_MODE) == LOW) { 
@@ -797,7 +809,7 @@ void unitSetting() {
     saveSettings();
     lcd.setCursor(11, 1);
     lcd.print("SAVED");
-    delay(1500);
+    delay(2000);
   }
 }
 
@@ -813,13 +825,15 @@ void alarmSetting() {
   } else {
     lcd.print("Now Off"); 
   }
+  delay(1000);
 
-  unsigned long time = millis();
   float new_alarm = settings.alarm;
+  unsigned long time = millis();
   
   while (millis() < time + PERIOD_BUTTON_WAIT) { 
     boolean pushed = false;
     
+    // decrease alarm value
     if (readButton(PIN_BUTTON_ALT) == LOW) { 
       pushed = true;
       if (new_alarm <= 1) {
@@ -834,6 +848,7 @@ void alarmSetting() {
       }
     }
 
+    // increase alarm value
     if (readButton(PIN_BUTTON_MODE) == LOW) { 
       pushed = true;
       if (new_alarm < 1) {
@@ -870,7 +885,7 @@ void alarmSetting() {
     saveSettings();
     lcd.setCursor(11, 1);
     lcd.print("SAVED");
-    delay(1500);
+    delay(2000);
   }
 }
 
@@ -881,30 +896,44 @@ void ratioSetting() {
   lcd.setCursor(0, 1);
   lcd.print("Now "); 
   lcd.print(settings.ratio, 0); 
+  delay(1000);
 
-  unsigned long time = millis();
   word new_ratio = settings.ratio;
+  boolean alt_pushed = false, mode_pushed = false;
+  unsigned long time = millis();
   
   while (millis() < time + PERIOD_BUTTON_WAIT) { 
-    boolean pushed = false;
-    
+    // decrease ratio value
     if (readButton(PIN_BUTTON_ALT) == LOW) { 
-      pushed = true;
-      new_ratio--;
+      if (alt_pushed) {
+        new_ratio -= 10;
+      } else {
+        new_ratio -= 1;
+      }
       if (new_ratio <= 0) {
         new_ratio = MAX_RATIO;
       }
+      alt_pushed = true;
+    } else {
+      alt_pushed = false;
     }
 
+    // increase ratio value
     if (readButton(PIN_BUTTON_MODE) == LOW) { 
-      pushed = true;
-      new_ratio++;
+      if (mode_pushed) {
+        new_ratio += 10;
+      } else {
+        new_ratio += 1;
+      }
       if (new_ratio > MAX_RATIO) {
         new_ratio = 0;
       }
+      mode_pushed = true;
+    } else {
+      mode_pushed = false;
     }
 
-    if (pushed) {
+    if (alt_pushed || mode_pushed) {
       lcd.setCursor(0, 1); 
       lcd.print("                ");
       lcd.setCursor(0, 1);
@@ -920,7 +949,7 @@ void ratioSetting() {
     saveSettings();
     lcd.setCursor(11, 1);
     lcd.print("SAVED");
-    delay(1500);
+    delay(2000);
   }
 }
 
@@ -1173,7 +1202,7 @@ void updateFactor() {
   if (settings.unit == UNIT_SV) {
     factor = 1.;
   } else if (settings.unit == UNIT_R) {
-    factor = 100.;
+    factor = RATIO_SV_TO_R;
   }
 }
 
