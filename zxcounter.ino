@@ -4,17 +4,18 @@
 #include <EEPROM.h>
 
 #define VERSION               1.3      // version of this software
-#define DEBUG                 true     // show VCC and available RAM at startup
+#define DEBUG                 false    // show VCC and available RAM at startup
 
 #define PERIOD_1S             1000
 #define PERIOD_5S             5000
 #define PERIOD_10S            10000
 
 #define PERIOD_REFRESH        1000     // display refresh period
+#define PERIOD_VCC_CHECK      10000    // check VCC every 10 seconds
 #define PERIOD_BUTTON_WAIT    2000     // wait until button pressed
 #define PERIOD_BUTTON_CHECK   100      // button check period
 
-#define DELAY_BLINK           PERIOD_REFRESH / 2
+#define DELAY_BLINK           200      // blink delay
 #define DELAY_DEBOUNCE        50       // button debounce delay
 
 #define COUNTS_5S_LEN         5        // 5 sec stats array length (5 data points per second)
@@ -47,6 +48,8 @@
 #define MAX_TIME              8640000  // limit time to 100 days
 #define MAX_ALARM             100      // uSv/h
 #define MAX_RATIO             2000     // CPM to uSv/h
+
+#define MIN_VCC               4200     // min VCC value
 
 // modes toggled via mode button
 #define MODE_STATS_AUTO       0        // show stats and bar with auto interval
@@ -83,6 +86,9 @@ float factor = 1.;
 // alarm enabled flag
 boolean alarm_enabled = false;
 
+// low VCC flags
+boolean low_vcc = false;
+
 // total counts
 unsigned long total;
 
@@ -116,6 +122,9 @@ unsigned long last_refresh;
 
 // last button check time
 unsigned long last_button_time;
+
+// last VCC check time
+unsigned long last_vcc_check;
 
 // counts array pointers
 byte counts_5s_index;
@@ -279,6 +288,15 @@ void loop() {
     // refresh display
     refreshDisplay();
   }
+
+  // check VCC each PERIOD_VCC_CHECK milliseconds
+  if (millis() >= last_vcc_check + PERIOD_VCC_CHECK) {
+    // update last VCC check time
+    last_vcc_check = millis();
+
+    // update low VCC flag
+    low_vcc = (readVCC() <= MIN_VCC);
+  }
 }
 
 void refreshDisplay() {
@@ -390,7 +408,11 @@ void displayAutoStats() {
   lcd.print("     "); // erase 5 chars
   lcd.setCursor(11, 0);  
   
-  if (alarm_enabled) {
+  if (low_vcc) {
+    delay(DELAY_BLINK);
+    lcd.print("LOWBT");
+  } else if (alarm_enabled) {
+    delay(DELAY_BLINK);
     lcd.print("ALARM");
   } else {
     printBar(counts_1s * 60. / settings.ratio * factor, settings.alarm ? settings.alarm * factor : DEFAULT_ALARM * factor, 5); // max 5 chars
