@@ -483,10 +483,10 @@ void displayAllStats() {
   
   if (time) {
     // calculate CPM
-    float cpm = total / (time / 60.);
+    cpm = total / (time / 60.);
     
     // convert CPM to equivalent dose;
-    float dose = cpm / settings.ratio * factor;
+    dose = cpm / settings.ratio * factor;
   }
 
   // update CPM
