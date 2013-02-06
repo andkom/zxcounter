@@ -131,12 +131,12 @@ boolean counts_5m_ready;
 boolean counts_10m_ready;
 
 // custom characters used for analog bar
-byte bar_0[8] = {0x00, 0x00, 0x10, 0x10, 0x10, 0x00, 0x00, 0x00}; // blank
-byte bar_1[8] = {0x10, 0x10, 0x18, 0x18, 0x18, 0x10, 0x10, 0x00}; // 1 bar
-byte bar_2[8] = {0x18, 0x18, 0x1c, 0x1c, 0x1c, 0x18, 0x18, 0x00}; // 2 bars
-byte bar_3[8] = {0x1C, 0x1C, 0x1e, 0x1e, 0x1e, 0x1C, 0x1C, 0x00}; // 3 bars
-byte bar_4[8] = {0x1E, 0x1E, 0x1f, 0x1f, 0x1f, 0x1E, 0x1E, 0x00}; // 4 bars
-byte bar_5[8] = {0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x00}; // 5 bars
+byte char_bar_0[8] = {0x00, 0x00, 0x10, 0x10, 0x10, 0x00, 0x00, 0x00}; // blank
+byte char_bar_1[8] = {0x10, 0x10, 0x18, 0x18, 0x18, 0x10, 0x10, 0x00}; // 1 bar
+byte char_bar_2[8] = {0x18, 0x18, 0x1c, 0x1c, 0x1c, 0x18, 0x18, 0x00}; // 2 bars
+byte char_bar_3[8] = {0x1C, 0x1C, 0x1e, 0x1e, 0x1e, 0x1C, 0x1C, 0x00}; // 3 bars
+byte char_bar_4[8] = {0x1E, 0x1E, 0x1f, 0x1f, 0x1f, 0x1E, 0x1E, 0x00}; // 4 bars
+byte char_bar_5[8] = {0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x00}; // 5 bars
 
 // instantiate the library and pass pins for (RS, Enable, D4, D5, D6, D7)
 // default layout for the Geiger board 
@@ -162,12 +162,12 @@ void setup() {
   lcd.begin(16,2);
   
   // load 6 custom chars
-  lcd.createChar(0, bar_0);
-  lcd.createChar(1, bar_1);
-  lcd.createChar(2, bar_2);
-  lcd.createChar(3, bar_3);
-  lcd.createChar(4, bar_4);
-  lcd.createChar(5, bar_5);  
+  lcd.createChar(0, char_bar_0);
+  lcd.createChar(1, char_bar_1);
+  lcd.createChar(2, char_bar_2);
+  lcd.createChar(3, char_bar_3);
+  lcd.createChar(4, char_bar_4);
+  lcd.createChar(5, char_bar_5);  
   
   // read EEPROM settings
   loadSettings();
@@ -183,17 +183,17 @@ void setup() {
 
   // if mode button pressed during startup then show debug and settings
   if (readButton(PIN_BUTTON_MODE) == LOW) {
+    clearDisplay();
+
     // print avail RAM
-    lcd.setCursor(0, 1);
     lcd.print("RAM: ");
     lcd.print(getAvailRAM());
-    delay(1500);
 
     // print VCC
-    clearDisplay();
     long vcc = readVCC();
+    lcd.setCursor(0, 1);
     lcd.print("VCC: ");
-    lcd.print(vcc/1000., 2);
+    lcd.print(vcc / 1000., 2);
     lcd.print("V");
     delay(1500);
   
