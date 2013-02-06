@@ -28,8 +28,6 @@
 #define CPM_LIMIT_10S     300      // min CPM to display 10 sec stats     
 #define CPM_LIMIT_30S     60       // min CPM to displat 30 sec stats
 
-#define MAX_TIME          8640000  // limit time to 100 days
-
 #define MODE_BUTTON_PIN   10       // button to toggle display mode
 #define INT_BUTTON_PIN    11       // button to togle interval
 #define ALARM_PIN         15       // outputs HIGH when alarm triggered
@@ -43,6 +41,7 @@
 #define DEFAULT_ALARM     5.       // alarm is off by default
 #define DEFAULT_RATIO     175.     // default CPM to uSv/h ratio for SBM-20
 
+#define MAX_TIME          8640000  // limit time to 100 days
 #define MAX_ALARM         100      // uSv/h
 #define MAX_RATIO         2000     // CPM to uSv/h
 
@@ -180,27 +179,30 @@ void setup() {
   lcd.print(VERSION);
   delay(1500);
 
-  // print VCC
-  clearDisplay();
-  long vcc = readVCC();
-  lcd.print("VCC: ");
-  lcd.print(vcc/1000., 2);
-  lcd.print("V");
+  // if mode button pressed during startup then show debug and settings
+  if (readButton(MODE_BUTTON_PIN) == LOW) {
+    // print avail RAM
+    lcd.setCursor(0, 1);
+    lcd.print("RAM: ");
+    lcd.print(getAvailRAM());
+    delay(1500);
 
-  // print avail RAM
-  lcd.setCursor(0, 1);
-  lcd.print("RAM: ");
-  lcd.print(getAvailRAM());
-  delay(1500);
-
-  // unit setting
-  unitSetting();
-
-  // alarm setting
-  alarmSetting();
+    // print VCC
+    clearDisplay();
+    long vcc = readVCC();
+    lcd.print("VCC: ");
+    lcd.print(vcc/1000., 2);
+    lcd.print("V");
   
-  // ratio setting
-  ratioSetting();
+    // unit setting
+    unitSetting();
+  
+    // alarm setting
+    alarmSetting();
+    
+    // ratio setting
+    ratioSetting();
+  }
   
   // print scale
   printScale();
