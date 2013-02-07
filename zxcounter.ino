@@ -143,12 +143,77 @@ boolean counts_5m_ready;
 boolean counts_10m_ready;
 
 // custom characters used for analog bar
-byte char_bar_0[8] = {0x00, 0x00, 0x10, 0x10, 0x10, 0x00, 0x00, 0x00}; // blank
-byte char_bar_1[8] = {0x10, 0x10, 0x18, 0x18, 0x18, 0x10, 0x10, 0x00}; // 1 bar
-byte char_bar_2[8] = {0x18, 0x18, 0x1c, 0x1c, 0x1c, 0x18, 0x18, 0x00}; // 2 bars
-byte char_bar_3[8] = {0x1C, 0x1C, 0x1e, 0x1e, 0x1e, 0x1C, 0x1C, 0x00}; // 3 bars
-byte char_bar_4[8] = {0x1E, 0x1E, 0x1f, 0x1f, 0x1f, 0x1E, 0x1E, 0x00}; // 4 bars
-byte char_bar_5[8] = {0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x00}; // 5 bars
+// blank
+byte char_bar_0[8] = {        
+  B00000,
+  B00000,
+  B00000,
+  B10101,
+  B00000,
+  B00000,
+  B00000,
+  B00000
+}; 
+
+// 1 bar
+byte char_bar_1[8] = {
+  B00000,
+  B10000,
+  B10000,
+  B10101,
+  B10000,
+  B10000,
+  B00000,
+  B00000
+};
+
+// 2 bars
+byte char_bar_2[8] = {
+  B00000,
+  B11000,
+  B11000,
+  B11101,
+  B11000,
+  B11000,
+  B00000,
+  B00000
+};
+
+// 3 bars
+byte char_bar_3[8] = {
+  B00000,
+  B11100,
+  B11100,
+  B11101,
+  B11100,
+  B11100,
+  B00000,
+  B00000
+};
+
+// 4 bars
+byte char_bar_4[8] = {
+  B00000,
+  B11110,
+  B11110,
+  B11111,
+  B11110,
+  B11110,
+  B00000,
+  B00000
+};
+
+// 5 bars
+byte char_bar_5[8] = {
+  B00000,
+  B11111,
+  B11111,
+  B11111,
+  B11111,
+  B11111,
+  B00000,
+  B00000
+};
 
 // instantiate the library and pass pins for (RS, Enable, D4, D5, D6, D7)
 // default layout for the Geiger board 
@@ -645,15 +710,19 @@ void printBar(float value, float max, byte blocks) {
   }
   
   float scaler = max / float(blocks * 5);
-  float bar_value = value / scaler;
-  byte full_blocks = byte(bar_value) / blocks;
-  byte prtl_blocks = byte(bar_value) % blocks;
+  byte bar_value = value / scaler;
+  byte full_blocks = bar_value / blocks;
+  byte prtl_blocks = bar_value % blocks;
 
   for (byte i = 0; i < full_blocks; i++) {
     lcd.write(5);
   }
   
   lcd.write(prtl_blocks);
+  
+  for (byte i = full_blocks + 1; i < blocks; i++) {
+    lcd.write(byte(0));
+  }
 }
 
 // prints scale
