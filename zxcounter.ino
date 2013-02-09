@@ -4,7 +4,6 @@
 #include <EEPROM.h>
 
 #define VERSION               1.3      // version of this software
-#define DEBUG                 false    // show VCC and available RAM at startup
 
 #define PERIOD_1S             1000
 #define PERIOD_5S             5000
@@ -42,7 +41,7 @@
 #define RATIO_SV_TO_R         100.     // Siverts to Roentgen ratio
 
 #define DEFAULT_UNIT          UNIT_SV  // siverts by default
-#define DEFAULT_ALARM         5.       // alarm is off by default
+#define DEFAULT_ALARM         1.       // 1 uSv/h by default
 #define DEFAULT_RATIO         175.     // default CPM to uSv/h ratio for SBM-20
 
 #define MAX_TIME              8640000  // limit time to 100 days
@@ -236,7 +235,7 @@ void setup() {
   pinMode(PIN_ALARM, OUTPUT); 
   
   // init 16x2 display
-  lcd.begin(16,2);
+  lcd.begin(16, 2);
   
   // load 6 custom chars
   lcd.createChar(0, char_bar_0);
@@ -256,32 +255,33 @@ void setup() {
   lcd.setCursor(2, 1);
   lcd.print("Version ");
   lcd.print(VERSION);
-  delay(2000);
 
-  // debug mode  
-  if (DEBUG) {
-    clearDisplay();
-    // print avail RAM
-    lcd.print("RAM: ");
-    lcd.print(getAvailRAM());
-    // print VCC
-    long vcc = readVCC();
-    lcd.setCursor(0, 1);
-    lcd.print("VCC: ");
-    lcd.print(vcc / 1000., 2);
-    lcd.print("V");
-    delay(2000);
+  // show debug info if mode button was pressed during startup
+  unsigned long time = millis();
+  while (millis() < time + PERIOD_BUTTON_WAIT) {
+    if (readButton(PIN_BUTTON_ALT) == LOW || readButton(PIN_BUTTON_MODE) == LOW) {
+      clearDisplay();
+      // print avail RAM
+      lcd.print("RAM: ");
+      lcd.print(getAvailRAM());
+      // print VCC
+      long vcc = readVCC();
+      lcd.setCursor(0, 1);
+      lcd.print("VCC: ");
+      lcd.print(vcc / 1000., 2);
+      lcd.print("V");
+      delay(2000);
+    }
   }
   
   clearDisplay();
   lcd.print(" Press MODE to");
   lcd.setCursor(0, 1);
   lcd.print("  enter SETUP");
-  
-  unsigned long time = millis();
-  
+
+  // if mode button pressed during startup then enter settings
+  time = millis();
   while (millis() < time + PERIOD_BUTTON_WAIT) {
-    // if mode button pressed during startup then enter settings
     if (readButton(PIN_BUTTON_ALT) == LOW || readButton(PIN_BUTTON_MODE) == LOW) {
       // unit setting
       unitSetting();
