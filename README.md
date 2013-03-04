@@ -1,7 +1,7 @@
 ZX Counter
 ==========
 
-**ZX Counter** is the alternative software for the Arduino-based Geiger counter [DIYGeigerCounter](https://sites.google.com/site/diygeigercounter/). The software uses the same pin layout as the [default sketch](https://sites.google.com/site/diygeigercounter/software), so it can be used without changing the hardware.
+**ZX Counter** is the alternative software for the [Arduino](http://en.wikipedia.org/wiki/Arduino)-based [Geiger counter](http://en.wikipedia.org/wiki/Geiger_counter) [DIYGeigerCounter](https://sites.google.com/site/diygeigercounter/). The software uses the same pin layout as the [default sketch](https://sites.google.com/site/diygeigercounter/software), so it can be used without changing the hardware.
 
 Features
 --------
