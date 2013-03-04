@@ -27,7 +27,7 @@
 #define CPM_LIMIT_1S          7500     // min CPM to display 1 sec stats
 #define CPM_LIMIT_5S          1500     // min CPM to display 5 sec stats
 #define CPM_LIMIT_10S         300      // min CPM to display 10 sec stats     
-#define CPM_LIMIT_30S         60       // min CPM to displat 30 sec stats
+#define CPM_LIMIT_30S         60       // min CPM to display 30 sec stats
 
 #define PIN_BUTTON_MODE       10       // button to toggle mode
 #define PIN_BUTTON_ALT        11       // optional button to toggle mode backwards
@@ -35,12 +35,12 @@
 
 #define ADDR_SETTINGS         32       // settings addr in EEPROM
 
-#define UNIT_SV               0        // Siverts
+#define UNIT_SV               0        // Sieverts
 #define UNIT_R                1        // Roentgens
 
-#define RATIO_SV_TO_R         100.     // Siverts to Roentgen ratio
+#define RATIO_SV_TO_R         100.     // Sieverts to Roentgen ratio
 
-#define DEFAULT_UNIT          UNIT_SV  // siverts by default
+#define DEFAULT_UNIT          UNIT_SV  // Sieverts by default
 #define DEFAULT_ALARM         1.       // 1 uSv/h by default
 #define DEFAULT_RATIO         175.     // default CPM to uSv/h ratio for SBM-20
 
