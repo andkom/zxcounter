@@ -18,11 +18,11 @@
 #define DELAY_DEBOUNCE        50       // button debounce delay
 
 #define COUNTS_5S_LEN         5        // 5 sec stats array length (5 data points per second)
-#define COUNTS_10S_LEN        10       // 10 sec stats array lenght (10 data points per second) 
-#define COUNTS_30S_LEN        30       // 30 sec stats array lenght (10 data points per second) 
-#define COUNTS_1M_LEN         60       // 1 min stats array lenght (60 data points per second) 
-#define COUNTS_5M_LEN         60       // 5 min stats array lenght (60 data points per 5 seconds) 
-#define COUNTS_10M_LEN        60       // 10 min stats array lenght (60 data points per 10 seconds) 
+#define COUNTS_10S_LEN        10       // 10 sec stats array length (10 data points per second) 
+#define COUNTS_30S_LEN        30       // 30 sec stats array length (10 data points per second) 
+#define COUNTS_1M_LEN         60       // 1 min stats array length (60 data points per second) 
+#define COUNTS_5M_LEN         60       // 5 min stats array length (60 data points per 5 seconds) 
+#define COUNTS_10M_LEN        60       // 10 min stats array length (60 data points per 10 seconds) 
 
 #define CPM_LIMIT_1S          7500     // min CPM to display 1 sec stats
 #define CPM_LIMIT_5S          1500     // min CPM to display 5 sec stats
@@ -63,8 +63,7 @@
 #define MODE_MAX              9        // show max dose
 #define MODE_DOSE             10       // show accumulated dose
 
-// alternative modes toggled via interval button
-
+// settings
 struct Settings {
   byte unit;
   float alarm; // uSv/h only
@@ -85,7 +84,7 @@ float factor = 1.;
 // alarm enabled flag
 boolean alarm_enabled = false;
 
-// low VCC flags
+// low VCC flag
 boolean low_vcc = false;
 
 // total counts
@@ -612,7 +611,7 @@ void displayDose() {
     // calculate average dose
     avg_dose = avg_cpm / settings.ratio * factor;
     
-    // calulate accumulated dose
+    // calculate accumulated dose
     dose = avg_dose * (time / 3600.);
   }
 
@@ -1347,7 +1346,7 @@ int getAvailRAM() {
   return memSize;
 }
 
-// reads LOW ACTIVE push buttom and debounces
+// reads LOW ACTIVE push button and debounces
 byte readButton(byte button_pin) {
   if (digitalRead(button_pin)) {
     // still high, nothing happened, get out
