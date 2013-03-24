@@ -269,7 +269,6 @@ void setup() {
       lcd.print("VCC: ");
       lcd.print(vcc / 1000., 2);
       lcd.print("V");
-      delay(2000);
     }
   }
   
