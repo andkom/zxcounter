@@ -3,7 +3,7 @@
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
 
-#define VERSION               1.3      // version of this software
+#define VERSION               1.31     // version of this software
 
 #define PERIOD_1S             1000
 #define PERIOD_5S             5000

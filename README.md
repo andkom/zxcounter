@@ -79,6 +79,9 @@ Note: currently, the **ALT** button is optional. All features will be still avai
 Change Log
 ----------
 
+**1.31**
+ * debug info fixed
+
 **1.3**
  * unit setting
  * ratio setting
