@@ -29,6 +29,13 @@
 #define CPM_LIMIT_10S         300      // min CPM to display 10 sec stats     
 #define CPM_LIMIT_30S         60       // min CPM to display 30 sec stats
 
+#define PIN_LCD_RS            3        // LCD register select (RS) pin
+#define PIN_LCD_EN            4        // LCD enable pin
+#define PIN_LCD_D4            5        // LCD D4 pin
+#define PIN_LCD_D5            6        // LCD D5 pin
+#define PIN_LCD_D6            7        // LCD D6 pin
+#define PIN_LCD_D7            8        // LCD D7 pin
+
 #define PIN_BUTTON_MODE       10       // button to toggle mode
 #define PIN_BUTTON_ALT        11       // optional button to toggle mode backwards
 #define PIN_ALARM             15       // outputs HIGH when alarm triggered
@@ -215,7 +222,7 @@ byte char_bar_5[8] = {
 
 // instantiate the library and pass pins for (RS, Enable, D4, D5, D6, D7)
 // default layout for the Geiger board 
-LiquidCrystal lcd(3, 4, 5, 6, 7, 8);
+LiquidCrystal lcd(PIN_LCD_RS, PIN_LCD_EN, PIN_LCD_D4, PIN_LCD_D5, PIN_LCD_D6, PIN_LCD_D7);
 
 void setup() {
   // init serial
