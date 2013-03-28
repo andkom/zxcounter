@@ -3,79 +3,94 @@
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
 
-#define VERSION               1.31     // version of this software
+#define VERSION                   1.31     // version of this software
 
-#define PERIOD_1S             1000
-#define PERIOD_5S             5000
-#define PERIOD_10S            10000
+// display modes
+#define MODE_AUTO                 0        // show stats and bar with auto interval
+#define MODE_CUSTOM_PERIOD_1      1        // show stats within custom period 1
+#define MODE_CUSTOM_PERIOD_2      2        // show stats within custom period 2
+#define MODE_ALL                  3        // show stats within the all time
+#define MODE_MAX                  4        // show max dose
+#define MODE_DOSE                 5        // show accumulated dose
 
-#define PERIOD_REFRESH        1000     // display refresh period
-#define PERIOD_VCC_CHECK      10000    // check VCC every 10 seconds
-#define PERIOD_BUTTON_WAIT    2000     // wait until button pressed
-#define PERIOD_BUTTON_CHECK   100      // button check period
+#define PERIOD_1S                 1000
+#define PERIOD_5S                 5000
+#define PERIOD_10S                10000
 
-#define DELAY_BLINK           200      // blink delay
-#define DELAY_DEBOUNCE        50       // button debounce delay
+#define PERIOD_REFRESH            1000     // display refresh period
+#define PERIOD_VCC_CHECK          10000    // check VCC every 10 seconds
+#define PERIOD_BUTTON_WAIT        2000     // wait until button pressed
+#define PERIOD_BUTTON_CHECK       100      // button check period
 
-#define COUNTS_5S_LEN         5        // 5 sec stats array length (5 data points per second)
-#define COUNTS_10S_LEN        10       // 10 sec stats array length (10 data points per second) 
-#define COUNTS_30S_LEN        30       // 30 sec stats array length (10 data points per second) 
-#define COUNTS_1M_LEN         60       // 1 min stats array length (60 data points per second) 
-#define COUNTS_5M_LEN         60       // 5 min stats array length (60 data points per 5 seconds) 
-#define COUNTS_10M_LEN        60       // 10 min stats array length (60 data points per 10 seconds) 
+#define DELAY_BLINK               200      // blink delay
+#define DELAY_DEBOUNCE            50       // button debounce delay
 
-#define CPM_LIMIT_1S          7500     // min CPM to display 1 sec stats
-#define CPM_LIMIT_5S          1500     // min CPM to display 5 sec stats
-#define CPM_LIMIT_10S         300      // min CPM to display 10 sec stats     
-#define CPM_LIMIT_30S         60       // min CPM to display 30 sec stats
+#define COUNTS_5S_LEN             5        // 5 sec stats array length (5 data points per second)
+#define COUNTS_10S_LEN            10       // 10 sec stats array length (10 data points per second) 
+#define COUNTS_30S_LEN            30       // 30 sec stats array length (10 data points per second) 
+#define COUNTS_1M_LEN             60       // 1 min stats array length (60 data points per second) 
+#define COUNTS_5M_LEN             60       // 5 min stats array length (60 data points per 5 seconds) 
+#define COUNTS_10M_LEN            60       // 10 min stats array length (60 data points per 10 seconds) 
 
-#define PIN_LCD_RS            3        // LCD register select (RS) pin
-#define PIN_LCD_EN            4        // LCD enable pin
-#define PIN_LCD_D4            5        // LCD D4 pin
-#define PIN_LCD_D5            6        // LCD D5 pin
-#define PIN_LCD_D6            7        // LCD D6 pin
-#define PIN_LCD_D7            8        // LCD D7 pin
+#define CPM_LIMIT_1S              7500     // min CPM to display 1 sec stats
+#define CPM_LIMIT_5S              1500     // min CPM to display 5 sec stats
+#define CPM_LIMIT_10S             300      // min CPM to display 10 sec stats     
+#define CPM_LIMIT_30S             60       // min CPM to display 30 sec stats
 
-#define PIN_BUTTON_MODE       10       // button to toggle mode
-#define PIN_BUTTON_ALT        11       // optional button to toggle mode backwards
-#define PIN_ALARM             15       // outputs HIGH when alarm triggered
+#define PIN_LCD_RS                3        // LCD register select (RS) pin
+#define PIN_LCD_EN                4        // LCD enable pin
+#define PIN_LCD_D4                5        // LCD D4 pin
+#define PIN_LCD_D5                6        // LCD D5 pin
+#define PIN_LCD_D6                7        // LCD D6 pin
+#define PIN_LCD_D7                8        // LCD D7 pin
 
-#define ADDR_SETTINGS         32       // settings addr in EEPROM
+#define PIN_BUTTON_MODE           10       // button to toggle mode
+#define PIN_BUTTON_ALT            11       // optional button to toggle mode backwards
+#define PIN_ALARM                 15       // outputs HIGH when alarm triggered
 
-#define UNIT_SV               0        // Sieverts
-#define UNIT_R                1        // Roentgens
+#define ADDR_SETTINGS             32       // settings addr in EEPROM
 
-#define RATIO_SV_TO_R         100.     // Sieverts to Roentgen ratio
+// dose units
+#define UNIT_SV                   0        // Sieverts
+#define UNIT_R                    1        // Roentgens
 
-#define DEFAULT_UNIT          UNIT_SV  // Sieverts by default
-#define DEFAULT_ALARM         1.       // 1 uSv/h by default
-#define DEFAULT_RATIO         175.     // default CPM to uSv/h ratio for SBM-20
+#define RATIO_SV_TO_R             100.     // Sieverts to Roentgen ratio
 
-#define MAX_TIME              8640000  // limit time to 100 days
-#define MAX_ALARM             100      // uSv/h
-#define MAX_RATIO             2000     // CPM to uSv/h
+// custom periods
+#define CUSTOM_PERIOD_1S          0
+#define CUSTOM_PERIOD_5S          1
+#define CUSTOM_PERIOD_10S         2
+#define CUSTOM_PERIOD_30S         3
+#define CUSTOM_PERIOD_1M          4
+#define CUSTOM_PERIOD_5M          5
+#define CUSTOM_PERIOD_10M         6
 
-#define MIN_VCC               4200     // min VCC value
+#define DEFAULT_UNIT              UNIT_SV  // Sieverts by default
+#define DEFAULT_ALARM             1.       // 1 uSv/h by default
+#define DEFAULT_RATIO             175.     // default CPM to uSv/h ratio for SBM-20
+#define DEFAULT_CUSTOM_PERIOD_1   CUSTOM_PERIOD_10S
+#define DEFAULT_CUSTOM_PERIOD_2   CUSTOM_PERIOD_5M
 
-// modes toggled via mode button
-#define MODE_STATS_AUTO       0        // show stats and bar with auto interval
-#define MODE_STATS_1S         1        // show stats within 1 second
-#define MODE_STATS_5S         2        // show stats within 5 seconds
-#define MODE_STATS_10S        3        // show stats within 10 seconds
-#define MODE_STATS_30S        4        // show stats within 30 seconds
-#define MODE_STATS_1M         5        // show stats within 1 minute
-#define MODE_STATS_5M         6        // show stats within 5 minutes
-#define MODE_STATS_10M        7        // show stats within 10 minutes
-#define MODE_STATS_ALL        8        // show stats for all time
-#define MODE_MAX              9        // show max dose
-#define MODE_DOSE             10       // show accumulated dose
+#define MAX_TIME                  8640000  // limit time to 100 days
+#define MAX_ALARM                 100      // uSv/h
+#define MAX_RATIO                 2000     // CPM to uSv/h
+
+#define MIN_VCC                   4200     // min VCC value
 
 // settings
 struct Settings {
   byte unit;
   float alarm; // uSv/h only
   float ratio; // CPM to uSv/h only
-} settings;
+  byte custom_period_1;
+  byte custom_period_2;
+} settings = {
+  DEFAULT_UNIT,
+  DEFAULT_ALARM,
+  DEFAULT_RATIO,
+  DEFAULT_CUSTOM_PERIOD_1,
+  DEFAULT_CUSTOM_PERIOD_2
+};
 
 // counts within 1 sec, 5 sec and 10 sec
 volatile unsigned long count_1s;
@@ -83,7 +98,7 @@ volatile unsigned long count_5s;
 volatile unsigned long count_10s;
 
 // default startup mode
-byte mode = MODE_STATS_AUTO;
+byte mode = MODE_AUTO;
 
 // conversion factor depends on unit
 float factor = 1.;
@@ -146,6 +161,9 @@ boolean counts_30s_ready;
 boolean counts_1m_ready;
 boolean counts_5m_ready; 
 boolean counts_10m_ready;
+
+// custom periods
+char *custom_periods[] = {"1s", "5s", "10s", "30s", "1m", "5m", "10m"};
 
 // custom characters used for analog bar
 // blank
@@ -296,6 +314,12 @@ void setup() {
       
       // ratio setting
       ratioSetting();
+      
+      // custom period 1 setting
+      customPeriodSetting("Custom Period 1", &settings.custom_period_1);
+      
+      // custom period 2 setting
+      customPeriodSetting("Custom Period 2", &settings.custom_period_2);
     }
   }
   
@@ -320,7 +344,7 @@ void loop() {
     // cycle modes back
     if (readButton(PIN_BUTTON_ALT) == LOW) {
       pushed = true;
-      if (mode <= MODE_STATS_AUTO) {
+      if (mode <= MODE_AUTO) {
         mode = MODE_DOSE;
       } else {
         mode--;
@@ -331,7 +355,7 @@ void loop() {
     if (readButton(PIN_BUTTON_MODE) == LOW) {
       pushed = true;
       if (mode >= MODE_DOSE) {
-        mode = MODE_STATS_AUTO;
+        mode = MODE_AUTO;
       } else {            
         mode++;
       }
@@ -371,46 +395,21 @@ void loop() {
 
 void refreshDisplay() {
   switch (mode) {
-    case MODE_STATS_AUTO:
+    case MODE_AUTO:
       displayAutoStats();
       break;
 
-    case MODE_STATS_1S:
-      // display 1 sec stats
-      displayStats(counts_1s, true, 1, false);
+    case MODE_CUSTOM_PERIOD_1:
+      // display custom period 1 stats
+      displayCustomPeriodStats(settings.custom_period_1);
       break;
 
-    case MODE_STATS_5S:
-      // display 5 sec stats
-      displayStats(get5sCPS(), counts_5s_ready, 5, false);
+    case MODE_CUSTOM_PERIOD_2:
+      // display custom period 2 stats
+      displayCustomPeriodStats(settings.custom_period_2);
       break;
 
-    case MODE_STATS_10S:
-      // display 10 sec stats
-      displayStats(get10sCPS(), counts_10s_ready, 10, false);
-      break;
-
-    case MODE_STATS_30S:
-      // display 30 sec stats
-      displayStats(get30sCPS(), counts_30s_ready, 30, false);
-      break;
-
-    case MODE_STATS_1M:
-      // display 1 min stats
-      displayStats(get1mCPS(), counts_1m_ready, 1, true);
-      break;
-
-    case MODE_STATS_5M:
-      // display 5 min stats
-      displayStats(get5mCPS(), counts_5m_ready, 5, true);
-      break;
-
-    case MODE_STATS_10M:
-      // display 10 min stats
-      displayStats(get10mCPS(), counts_10m_ready, 10, true);
-      break;
-
-    case MODE_STATS_ALL:
+    case MODE_ALL:
       // display stats within all time
       displayAllStats();
       break;
@@ -507,6 +506,46 @@ void displayAutoStats() {
   // update period
   lcd.setCursor(13, 1);
   printPeriod(period, false); // 3 chars
+}
+
+// display custom period stats
+void displayCustomPeriodStats(byte period) {
+  switch (period) {
+    case CUSTOM_PERIOD_1S:
+      // display 1 sec stats
+      displayStats(counts_1s, true, 1, false);
+      break;
+
+    case CUSTOM_PERIOD_5S:
+      // display 5 sec stats
+      displayStats(get5sCPS(), counts_5s_ready, 5, false);
+      break;
+
+    case CUSTOM_PERIOD_10S:
+      // display 10 sec stats
+      displayStats(get10sCPS(), counts_10s_ready, 10, false);
+      break;
+
+    case CUSTOM_PERIOD_30S:
+      // display 30 sec stats
+      displayStats(get30sCPS(), counts_30s_ready, 30, false);
+      break;
+
+    case CUSTOM_PERIOD_1M:
+      // display 1 min stats
+      displayStats(get1mCPS(), counts_1m_ready, 1, true);
+      break;
+
+    case CUSTOM_PERIOD_5M:
+      // display 5 min stats
+      displayStats(get5mCPS(), counts_5m_ready, 5, true);
+      break;
+
+    case CUSTOM_PERIOD_10M:
+      // display 10 min stats
+      displayStats(get10mCPS(), counts_10m_ready, 10, true);
+      break;
+  }
 }
 
 // displays stats within period
@@ -734,14 +773,9 @@ void printBar(float value, float max, byte blocks) {
 void printScale() {
   clearDisplay();
   switch (mode) {
-    case MODE_STATS_AUTO:
-    case MODE_STATS_1S:
-    case MODE_STATS_5S:
-    case MODE_STATS_10S:
-    case MODE_STATS_30S:
-    case MODE_STATS_1M:
-    case MODE_STATS_5M:
-    case MODE_STATS_10M:
+    case MODE_AUTO:
+    case MODE_CUSTOM_PERIOD_1:
+    case MODE_CUSTOM_PERIOD_2:
       lcd.setCursor(0, 0);
       lcd.print("CPM ?");
       lcd.setCursor(0, 1);
@@ -752,7 +786,7 @@ void printScale() {
       }
       break;
 
-    case MODE_STATS_ALL:
+    case MODE_ALL:
       lcd.setCursor(0, 0);
       lcd.print("CPM ?");
       lcd.setCursor(0, 1);
@@ -1049,6 +1083,62 @@ void ratioSetting() {
   }
 }
 
+// custom period setting
+void customPeriodSetting(char *name, byte *custom_period) { 
+  clearDisplay();  
+  lcd.print(name);
+  lcd.setCursor(0, 1);
+  lcd.print("Now "); 
+  lcd.print(custom_periods[*custom_period]); 
+  delay(1000);
+
+  byte new_custom_period = *custom_period;
+  unsigned long time = millis();
+  
+  while (millis() < time + PERIOD_BUTTON_WAIT) { 
+    boolean pushed = false;
+
+    // decrease custom_period value
+    if (readButton(PIN_BUTTON_ALT) == LOW) { 
+      pushed = true;
+      if (new_custom_period == 0) {
+        new_custom_period = CUSTOM_PERIOD_10M;
+      } else {
+        new_custom_period--;
+      }
+    }
+
+    // increase custom_period value
+    if (readButton(PIN_BUTTON_MODE) == LOW) { 
+      pushed = true;
+      if (new_custom_period >= CUSTOM_PERIOD_10M) {
+        new_custom_period = CUSTOM_PERIOD_1S;
+      } else {
+        new_custom_period++;
+      }        
+    }
+
+    if (pushed) {
+      lcd.setCursor(0, 1); 
+      lcd.print("                ");
+      lcd.setCursor(0, 1);
+      lcd.print(custom_periods[new_custom_period]); 
+  
+      time = millis();
+      delay(100);
+    }
+  } 
+  
+  if (new_custom_period != *custom_period) {
+    *custom_period = new_custom_period;
+    saveSettings();
+    lcd.setCursor(11, 1);
+    lcd.print("SAVED");
+    delay(2000);
+  }
+}
+
+
 // triggers on interrupt event
 void click() {
   // increment 1 sec count
@@ -1312,12 +1402,20 @@ void loadSettings() {
   }
   if (isnan(settings.alarm) || settings.alarm < 0 || settings.alarm > MAX_ALARM) {
     settings.alarm = DEFAULT_ALARM;
+  } else {
+    settings.alarm = round(settings.alarm * 100.) / 100.;
   }
   if (isnan(settings.ratio) || settings.ratio <= 0 || settings.ratio > MAX_RATIO) {
     settings.ratio = DEFAULT_RATIO;
+  } else {
+    settings.ratio = round(settings.ratio * 100.) / 100.;
   }
-  settings.alarm = round(settings.alarm * 100.) / 100.;
-  settings.ratio = round(settings.ratio * 100.) / 100.;
+  if (settings.custom_period_1 > CUSTOM_PERIOD_10M) {
+    settings.custom_period_1 = DEFAULT_CUSTOM_PERIOD_1;
+  }
+  if (settings.custom_period_2 > CUSTOM_PERIOD_10M) {
+    settings.custom_period_2 = DEFAULT_CUSTOM_PERIOD_2;
+  }
   updateFactor();
 }
 
