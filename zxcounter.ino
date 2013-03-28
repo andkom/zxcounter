@@ -67,15 +67,18 @@
 
 #define DEFAULT_UNIT              UNIT_SV  // Sieverts by default
 #define DEFAULT_ALARM             1.       // 1 uSv/h by default
+#define DEFAULT_BAR_SCALE         0.5      // 0.5 uSv/h by default
 #define DEFAULT_RATIO             175.     // default CPM to uSv/h ratio for SBM-20
 #define DEFAULT_CUSTOM_PERIOD_1   CUSTOM_PERIOD_10S
 #define DEFAULT_CUSTOM_PERIOD_2   CUSTOM_PERIOD_5M
 
 #define MAX_TIME                  8640000  // limit time to 100 days
 #define MAX_ALARM                 100      // uSv/h
+#define MAX_BAR_SCALE             100      // uSv/h
 #define MAX_RATIO                 2000     // CPM to uSv/h
 
 #define MIN_VCC                   4200     // min VCC value
+#define MIN_BAR_SCALE             0.5      // 0.1 uSv/h by default
 
 // settings
 struct Settings {
@@ -84,12 +87,14 @@ struct Settings {
   float ratio; // CPM to uSv/h only
   byte custom_period_1;
   byte custom_period_2;
+  float bar_scale;
 } settings = {
   DEFAULT_UNIT,
   DEFAULT_ALARM,
   DEFAULT_RATIO,
   DEFAULT_CUSTOM_PERIOD_1,
-  DEFAULT_CUSTOM_PERIOD_2
+  DEFAULT_CUSTOM_PERIOD_2,
+  DEFAULT_BAR_SCALE
 };
 
 // counts within 1 sec, 5 sec and 10 sec
@@ -312,6 +317,9 @@ void setup() {
       // alarm setting
       alarmSetting();
       
+      // bar scale setting
+      barScaleSetting();
+      
       // ratio setting
       ratioSetting();
       
@@ -484,7 +492,7 @@ void displayAutoStats() {
     delay(DELAY_BLINK);
     lcd.print("ALARM");
   } else {
-    printBar(counts_1s * 60. / settings.ratio * factor, settings.alarm ? settings.alarm * factor : DEFAULT_ALARM * factor, 5); // max 5 chars
+    printBar(counts_1s * 60. / settings.ratio * factor, settings.bar_scale * factor, 5); // max 5 chars
   }
   
   // update dose unit
@@ -1019,6 +1027,73 @@ void alarmSetting() {
   }
 }
 
+// bar scale setting
+void barScaleSetting() { 
+  clearDisplay();  
+  lcd.print("Set Bar Scale?");
+  lcd.setCursor(0, 1);
+  lcd.print("Now "); 
+  lcd.print(settings.bar_scale, 2); 
+  lcd.print(" uSv/h");
+  delay(1000);
+
+  float new_bar_scale = settings.bar_scale;
+  unsigned long time = millis();
+  
+  while (millis() < time + PERIOD_BUTTON_WAIT) { 
+    boolean pushed = false;
+    
+    // decrease bar scale value
+    if (readButton(PIN_BUTTON_ALT) == LOW) { 
+      pushed = true;
+      if (new_bar_scale <= 1) {
+        new_bar_scale -= 0.1;
+      } else if (new_bar_scale <= 10) {
+        new_bar_scale -= 1;
+      } else {
+        new_bar_scale -= 10;
+      }
+      if (new_bar_scale < MIN_BAR_SCALE) {
+        new_bar_scale = MAX_BAR_SCALE;
+      }
+    }
+
+    // increase bar scale value
+    if (readButton(PIN_BUTTON_MODE) == LOW) { 
+      pushed = true;
+      if (new_bar_scale < 1) {
+        new_bar_scale += 0.1;
+      } else if (new_bar_scale < 10) {
+        new_bar_scale += 1;
+      } else {
+        new_bar_scale += 10;
+      }
+      if (new_bar_scale > MAX_BAR_SCALE) {
+        new_bar_scale = MIN_BAR_SCALE;
+      }
+    }
+
+    if (pushed) {
+      lcd.setCursor(0, 1); 
+      lcd.print("                ");
+      lcd.setCursor(0, 1);
+      lcd.print(new_bar_scale, 2); 
+      lcd.print(" uSv/h");
+  
+      time = millis();
+      delay(100);
+    }
+  } 
+  
+  if (new_bar_scale != settings.bar_scale) {
+    settings.bar_scale = new_bar_scale;
+    saveSettings();
+    lcd.setCursor(11, 1);
+    lcd.print("SAVED");
+    delay(2000);
+  }
+}
+
 // ratio setting
 void ratioSetting() { 
   clearDisplay();  
@@ -1404,6 +1479,11 @@ void loadSettings() {
     settings.alarm = DEFAULT_ALARM;
   } else {
     settings.alarm = round(settings.alarm * 100.) / 100.;
+  }
+  if (isnan(settings.bar_scale) || settings.bar_scale < MIN_BAR_SCALE || settings.bar_scale > MAX_BAR_SCALE) {
+    settings.bar_scale = DEFAULT_BAR_SCALE;
+  } else {
+    settings.bar_scale = round(settings.bar_scale * 100.) / 100.;
   }
   if (isnan(settings.ratio) || settings.ratio <= 0 || settings.ratio > MAX_RATIO) {
     settings.ratio = DEFAULT_RATIO;
