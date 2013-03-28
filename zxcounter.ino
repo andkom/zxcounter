@@ -324,10 +324,10 @@ void setup() {
       ratioSetting();
       
       // custom period 1 setting
-      customPeriodSetting("Custom Period 1", &settings.custom_period_1);
+      customPeriodSetting("Custom Period 1:", &settings.custom_period_1);
       
       // custom period 2 setting
-      customPeriodSetting("Custom Period 2", &settings.custom_period_2);
+      customPeriodSetting("Custom Period 2:", &settings.custom_period_2);
     }
   }
   
@@ -907,9 +907,8 @@ void setAlarm(boolean enabled) {
 // unit setting
 void unitSetting() { 
   clearDisplay();  
-  lcd.print("Set Unit?");
+  lcd.print("Eqiv. Dose Unit:");
   lcd.setCursor(0, 1);
-  lcd.print("Now "); 
   if (settings.unit == UNIT_SV) {
     lcd.print("Sv");
   } else if (settings.unit == UNIT_R) {
@@ -954,14 +953,13 @@ void unitSetting() {
 // alarm setting
 void alarmSetting() { 
   clearDisplay();  
-  lcd.print("Set Alarm?");
+  lcd.print("Alarm:");
   lcd.setCursor(0, 1);
   if (settings.alarm) {
-    lcd.print("Now "); 
     lcd.print(settings.alarm, 2); 
     lcd.print(" uSv/h");
   } else {
-    lcd.print("Now Off"); 
+    lcd.print("Off"); 
   }
   delay(1000);
 
@@ -1030,9 +1028,8 @@ void alarmSetting() {
 // bar scale setting
 void barScaleSetting() { 
   clearDisplay();  
-  lcd.print("Set Bar Scale?");
+  lcd.print("Bar Scale:");
   lcd.setCursor(0, 1);
-  lcd.print("Now "); 
   lcd.print(settings.bar_scale, 2); 
   lcd.print(" uSv/h");
   delay(1000);
@@ -1097,10 +1094,10 @@ void barScaleSetting() {
 // ratio setting
 void ratioSetting() { 
   clearDisplay();  
-  lcd.print("Set Ratio?");
+  lcd.print("Ratio:");
   lcd.setCursor(0, 1);
-  lcd.print("Now "); 
   lcd.print(settings.ratio, 0); 
+  lcd.print(" CPM/uSv/h");
   delay(1000);
 
   word new_ratio = settings.ratio;
@@ -1143,6 +1140,7 @@ void ratioSetting() {
       lcd.print("                ");
       lcd.setCursor(0, 1);
       lcd.print(new_ratio); 
+      lcd.print(" CPM/uSv/h");
   
       time = millis();
       delay(100);
@@ -1163,7 +1161,6 @@ void customPeriodSetting(char *name, byte *custom_period) {
   clearDisplay();  
   lcd.print(name);
   lcd.setCursor(0, 1);
-  lcd.print("Now "); 
   lcd.print(custom_periods[*custom_period]); 
   delay(1000);
 
