@@ -328,6 +328,9 @@ void setup() {
       
       // custom period 2 setting
       customPeriodSetting("Custom Period 2:", &settings.custom_period_2);
+      
+      // reset to default setting
+      resetSetting();
     }
   }
   
@@ -903,7 +906,6 @@ void setAlarm(boolean enabled) {
   }
 }
 
-
 // unit setting
 void unitSetting() { 
   clearDisplay();  
@@ -914,7 +916,6 @@ void unitSetting() {
   } else if (settings.unit == UNIT_R) {
     lcd.print("R");
   }
-  delay(1000);
 
   byte new_unit = settings.unit;
   unsigned long time = millis();
@@ -961,7 +962,6 @@ void alarmSetting() {
   } else {
     lcd.print("Off"); 
   }
-  delay(1000);
 
   float new_alarm = settings.alarm;
   unsigned long time = millis();
@@ -1032,7 +1032,6 @@ void barScaleSetting() {
   lcd.setCursor(0, 1);
   lcd.print(settings.bar_scale, 2); 
   lcd.print(" uSv/h");
-  delay(1000);
 
   float new_bar_scale = settings.bar_scale;
   unsigned long time = millis();
@@ -1098,7 +1097,6 @@ void ratioSetting() {
   lcd.setCursor(0, 1);
   lcd.print(settings.ratio, 0); 
   lcd.print(" CPM/uSv/h");
-  delay(1000);
 
   word new_ratio = settings.ratio;
   boolean alt_pushed = false, mode_pushed = false;
@@ -1162,7 +1160,6 @@ void customPeriodSetting(char *name, byte *custom_period) {
   lcd.print(name);
   lcd.setCursor(0, 1);
   lcd.print(custom_periods[*custom_period]); 
-  delay(1000);
 
   byte new_custom_period = *custom_period;
   unsigned long time = millis();
@@ -1210,6 +1207,42 @@ void customPeriodSetting(char *name, byte *custom_period) {
   }
 }
 
+// reset setting
+void resetSetting() { 
+  clearDisplay();  
+  lcd.print("Reset settings:");
+  lcd.setCursor(0, 1);
+  lcd.print("No");
+
+  boolean reset = false;
+  unsigned long time = millis();
+  
+  while (millis() < time + PERIOD_BUTTON_WAIT) { 
+    if (readButton(PIN_BUTTON_ALT) == LOW || readButton(PIN_BUTTON_MODE) == LOW) { 
+      reset = !reset;
+
+      lcd.setCursor(0, 1); 
+      lcd.print("                ");
+      lcd.setCursor(0, 1);
+      if (reset) {
+        lcd.print("Yes");
+      } else {
+        lcd.print("No");
+      }
+  
+      time = millis();
+      delay(100);
+    }
+  }
+  
+  if (reset) {
+    resetSettings();
+    saveSettings();
+    lcd.setCursor(11, 1);
+    lcd.print("RESET");
+    delay(2000);
+  }
+} 
 
 // triggers on interrupt event
 void click() {
@@ -1504,6 +1537,16 @@ void saveSettings() {
   }
 }
 
+// reset settings to defaults
+void resetSettings() {
+  settings.unit = DEFAULT_UNIT;
+  settings.alarm = DEFAULT_ALARM;
+  settings.ratio = DEFAULT_RATIO;
+  settings.custom_period_1 = DEFAULT_CUSTOM_PERIOD_1;
+  settings.custom_period_2 = DEFAULT_CUSTOM_PERIOD_2;
+  settings.bar_scale = DEFAULT_BAR_SCALE;
+}
+
 // return current VCC voltage in mV
 long readVCC() {
   long result;
@@ -1545,5 +1588,4 @@ byte readButton(byte button_pin) {
     }
   }
 }
-
 
