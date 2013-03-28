@@ -18,6 +18,7 @@
 #define PERIOD_10S                10000
 
 #define PERIOD_REFRESH            1000     // display refresh period
+#define PERIOD_LOG                60000    // log to serial every 60 seconds
 #define PERIOD_VCC_CHECK          10000    // check VCC every 10 seconds
 #define PERIOD_BUTTON_WAIT        2000     // wait until button pressed
 #define PERIOD_BUTTON_CHECK       100      // button check period
@@ -137,6 +138,9 @@ unsigned long max_cpm;
 // max CPM count time
 unsigned long max_time;
 
+// current VCC in mV
+unsigned long vcc;
+
 // last 1 sec, 5 sec, 10 sec check times
 unsigned long count_1s_time;
 unsigned long count_5s_time;
@@ -144,6 +148,9 @@ unsigned long count_10s_time;
 
 // last display refresh time
 unsigned long last_refresh;
+
+// last log time
+unsigned long last_log;
 
 // last button check time
 unsigned long last_button_time;
@@ -167,11 +174,12 @@ boolean counts_1m_ready;
 boolean counts_5m_ready; 
 boolean counts_10m_ready;
 
+// equiv dose units
+char *units[] = {"Sv", "R"}; 
+
 // custom periods
 char *custom_periods[] = {"1s", "5s", "10s", "30s", "1m", "5m", "10m"};
 
-// equiv dose units
-char *units[] = {"Sv (Sieverts)", "R (Roentgens)"}; 
 
 // custom characters used for analog bar
 // blank
@@ -397,13 +405,25 @@ void loop() {
     refreshDisplay();
   }
 
+  // log to serial each PERIOD_LOG milliseconds
+  if (millis() >= last_log + PERIOD_LOG) {
+    // update last log time
+    last_log = millis();
+    
+    // log to serial
+    logStats(get1mCPS());
+  }
+
   // check VCC each PERIOD_VCC_CHECK milliseconds
   if (millis() >= last_vcc_check + PERIOD_VCC_CHECK) {
+    // update current VCC
+    vcc = readVCC();
+
     // update last VCC check time
     last_vcc_check = millis();
 
     // update low VCC flag
-    low_vcc = (readVCC() <= MIN_VCC);
+    low_vcc = (vcc <= MIN_VCC);
   }
 }
 
@@ -841,6 +861,20 @@ void printScale() {
   }
 }
 
+// log stats to serial
+void logStats(float cps) {
+  float cpm = cps * 60.;
+  
+  // convert CPM to equivalent dose;
+  float dose = cpm / settings.ratio * factor;
+
+  Serial.print(cpm);
+  Serial.print(',');    
+  Serial.print(dose, 2);
+  Serial.print(',');
+  Serial.println(vcc / 1000.);
+}
+
 // reset counts
 void resetCounts() {
   counts_1s = 0;
@@ -912,7 +946,7 @@ void setAlarm(boolean enabled) {
 // unit setting
 void unitSetting() { 
   clearDisplay();  
-  lcd.print("Eqiv. Dose Unit:");
+  lcd.print("Unit:");
   lcd.setCursor(0, 1);
   lcd.print(units[settings.unit]);
 
@@ -1091,7 +1125,6 @@ void ratioSetting() {
   lcd.print("Ratio:");
   lcd.setCursor(0, 1);
   lcd.print(settings.ratio, 0); 
-  lcd.print(" CPM/uSv/h");
 
   word new_ratio = settings.ratio;
   boolean alt_pushed = false, mode_pushed = false;
@@ -1133,7 +1166,6 @@ void ratioSetting() {
       lcd.print("                ");
       lcd.setCursor(0, 1);
       lcd.print(new_ratio); 
-      lcd.print(" CPM/uSv/h");
   
       time = millis();
       delay(100);
@@ -1543,8 +1575,8 @@ void resetSettings() {
 }
 
 // return current VCC voltage in mV
-long readVCC() {
-  long result;
+unsigned long readVCC() {
+  unsigned long result;
   // Read 1.1V reference against AVcc
   ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
   delay(2); // Wait for Vref to settle
