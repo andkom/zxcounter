@@ -170,6 +170,9 @@ boolean counts_10m_ready;
 // custom periods
 char *custom_periods[] = {"1s", "5s", "10s", "30s", "1m", "5m", "10m"};
 
+// equiv dose units
+char *units[] = {"Sv (Sieverts)", "R (Roentgens)"}; 
+
 // custom characters used for analog bar
 // blank
 byte char_bar_0[8] = {        
@@ -911,11 +914,7 @@ void unitSetting() {
   clearDisplay();  
   lcd.print("Eqiv. Dose Unit:");
   lcd.setCursor(0, 1);
-  if (settings.unit == UNIT_SV) {
-    lcd.print("Sv");
-  } else if (settings.unit == UNIT_R) {
-    lcd.print("R");
-  }
+  lcd.print(units[settings.unit]);
 
   byte new_unit = settings.unit;
   unsigned long time = millis();
@@ -931,11 +930,7 @@ void unitSetting() {
       lcd.setCursor(0, 1); 
       lcd.print("                ");
       lcd.setCursor(0, 1);
-      if (new_unit == UNIT_SV) {
-        lcd.print("Sv");
-      } else if (new_unit == UNIT_R) {
-        lcd.print("R");
-      }
+      lcd.print(units[new_unit]);
   
       time = millis();
       delay(100);
