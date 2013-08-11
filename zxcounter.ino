@@ -322,6 +322,8 @@ void setup() {
   time = millis();
   while (millis() < time + PERIOD_BUTTON_WAIT) {
     if (readButton(PIN_BUTTON_ALT) == LOW || readButton(PIN_BUTTON_MODE) == LOW) {
+      delay(PERIOD_BUTTON_CHECK);
+  
       // unit setting
       unitSetting();
     
@@ -1033,7 +1035,7 @@ void alarmSetting() {
       lcd.print("                ");
       lcd.setCursor(0, 1);
   
-      if (new_alarm) {
+      if (round(new_alarm * 100.) / 100.) {
         lcd.print(new_alarm, 2); 
         lcd.print(" uSv/h");
       } else {
@@ -1154,7 +1156,7 @@ void ratioSetting() {
         new_ratio += 1;
       }
       if (new_ratio > MAX_RATIO) {
-        new_ratio = 0;
+        new_ratio = 1;
       }
       mode_pushed = true;
     } else {
