@@ -85,6 +85,9 @@ Note: currently, the **ALT** button is optional. All features will be still avai
 Change Log
 ----------
 
+**1.5**
+ * settings fixes
+
 **1.4**
  * decreased number of display modes: removed 1s, 5s, 10s, 30s, 1m, 5m, 10m stats display modes
  * added two new display modes: custom period 1 and custom period 2
