@@ -13,11 +13,13 @@
 #define MODE_MAX                  4        // show max dose
 #define MODE_DOSE                 5        // show accumulated dose
 
+#define PERIOD_100MS              100
 #define PERIOD_1S                 1000
 #define PERIOD_5S                 5000
 #define PERIOD_10S                10000
 
 #define PERIOD_REFRESH            1000     // display refresh period
+#define PERIOD_BAR_REFRESH        100      // analog bar refresh period
 #define PERIOD_LOG                60000    // log to serial every 60 seconds
 #define PERIOD_VCC_CHECK          10000    // check VCC every 10 seconds
 #define PERIOD_BUTTON_WAIT        2000     // wait until button pressed
@@ -26,9 +28,10 @@
 #define DELAY_BLINK               200      // blink delay
 #define DELAY_DEBOUNCE            50       // button debounce delay
 
+#define COUNTS_1S_LEN             10       // 1 sec stats array length (10 data points per 100 milliseconds)
 #define COUNTS_5S_LEN             5        // 5 sec stats array length (5 data points per second)
 #define COUNTS_10S_LEN            10       // 10 sec stats array length (10 data points per second) 
-#define COUNTS_30S_LEN            30       // 30 sec stats array length (10 data points per second) 
+#define COUNTS_30S_LEN            30       // 30 sec stats array length (30 data points per second) 
 #define COUNTS_1M_LEN             60       // 1 min stats array length (60 data points per second) 
 #define COUNTS_5M_LEN             60       // 5 min stats array length (60 data points per 5 seconds) 
 #define COUNTS_10M_LEN            60       // 10 min stats array length (60 data points per 10 seconds) 
@@ -98,7 +101,8 @@ struct Settings {
   DEFAULT_BAR_SCALE
 };
 
-// counts within 1 sec, 5 sec and 10 sec
+// counts within 100ms, 1 sec, 5 sec and 10 sec
+volatile unsigned long count_100ms;
 volatile unsigned long count_1s;
 volatile unsigned long count_5s;
 volatile unsigned long count_10s;
@@ -118,10 +122,8 @@ boolean low_vcc = false;
 // total counts
 unsigned long total;
 
-// current CPS
-unsigned long counts_1s;
-
-// 5 sec, 10 sec, 30 sec, 1 min, 5 min, 10 min data arrays
+// 1 sec, 5 sec, 10 sec, 30 sec, 1 min, 5 min, 10 min data arrays
+unsigned long counts_1s[COUNTS_1S_LEN];
 unsigned long counts_5s[COUNTS_5S_LEN];
 unsigned long counts_10s[COUNTS_10S_LEN];
 unsigned long counts_30s[COUNTS_30S_LEN];
@@ -141,13 +143,17 @@ unsigned long max_time;
 // current VCC in mV
 unsigned long vcc;
 
-// last 1 sec, 5 sec, 10 sec check times
+// last 100 msec, 1 sec, 5 sec, 10 sec check times
+unsigned long count_100ms_time;
 unsigned long count_1s_time;
 unsigned long count_5s_time;
 unsigned long count_10s_time;
 
 // last display refresh time
 unsigned long last_refresh;
+
+// last bar refresh time
+unsigned long last_bar_refresh;
 
 // last log time
 unsigned long last_log;
@@ -159,6 +165,7 @@ unsigned long last_button_time;
 unsigned long last_vcc_check;
 
 // counts array pointers
+byte counts_1s_index;
 byte counts_5s_index;
 byte counts_10s_index;
 byte counts_30s_index;
@@ -167,6 +174,7 @@ byte counts_5m_index;
 byte counts_10m_index;
 
 // data ready flags
+boolean counts_1s_ready;
 boolean counts_5s_ready;
 boolean counts_10s_ready;
 boolean counts_30s_ready;
@@ -406,6 +414,14 @@ void loop() {
     // refresh display
     refreshDisplay();
   }
+  
+  // fast refresh bar each PERIOD_BAR_REFRESH milliseconds
+  if (mode == MODE_AUTO && !low_vcc && !alarm_enabled && millis() >= last_bar_refresh + PERIOD_BAR_REFRESH) {
+     // update last fast refresh time
+     last_bar_refresh = millis();
+     
+     refreshBar();
+  }
 
   // log to serial each PERIOD_LOG milliseconds
   if (millis() >= last_log + PERIOD_LOG) {
@@ -462,6 +478,12 @@ void refreshDisplay() {
   }
 }
 
+// refresh analog bar
+void refreshBar() {
+    lcd.setCursor(11, 0);
+    printBar(getCPS() * 60. / settings.ratio * factor, settings.bar_scale * factor, 5); // max 5 chars
+}
+
 // displays auto stats
 void displayAutoStats() {
   byte period;
@@ -477,7 +499,7 @@ void displayAutoStats() {
   // auto scale
   if (cpm_5s > CPM_LIMIT_1S) {
     period = 1;
-    avg_cps = counts_1s; // current CPS
+    avg_cps = getCPS(); // current CPS
     ready = true;
   } else if (cpm_5s > CPM_LIMIT_5S) {
     period = 5;
@@ -509,20 +531,20 @@ void displayAutoStats() {
   lcd.setCursor(4, 0);
   printCPM(cpm_5s); // max 6 chars
 
-  lcd.setCursor(11, 0);
-  lcd.print("     "); // erase 5 chars
-  lcd.setCursor(11, 0);  
-  
-  if (low_vcc) {
+  if (low_vcc || alarm_enabled) {
+    lcd.setCursor(11, 0);
+    lcd.print("     "); // erase 5 chars
+    lcd.setCursor(11, 0);
+    
     delay(DELAY_BLINK);
-    lcd.print("LOWBT");
-  } else if (alarm_enabled) {
-    delay(DELAY_BLINK);
-    lcd.print("ALARM");
-  } else {
-    printBar(counts_1s * 60. / settings.ratio * factor, settings.bar_scale * factor, 5); // max 5 chars
+
+    if (low_vcc) {
+      lcd.print("LOWBT");
+    } else if (alarm_enabled) {
+      lcd.print("ALARM");
+    }
   }
-  
+
   // update dose unit
   lcd.setCursor(0, 1);
   printUnit(avg_dose); // 1 char
@@ -549,7 +571,7 @@ void displayCustomPeriodStats(byte period) {
   switch (period) {
     case CUSTOM_PERIOD_1S:
       // display 1 sec stats
-      displayStats(counts_1s, true, 1, false);
+      displayStats(getCPS(), counts_1s_ready, 1, false);
       break;
 
     case CUSTOM_PERIOD_5S:
@@ -879,7 +901,9 @@ void logStats(float cps) {
 
 // reset counts
 void resetCounts() {
-  counts_1s = 0;
+  for (byte i = 0; i < COUNTS_1S_LEN; i++) {
+    counts_1s[i] = 0;
+  }
 
   for (byte i = 0; i < COUNTS_5S_LEN; i++) {
     counts_5s[i] = 0;
@@ -906,13 +930,13 @@ void resetCounts() {
   }
 
   // reset data ready flags
-  counts_5s_ready = counts_10s_ready = counts_30s_ready = counts_1m_ready = counts_10m_ready = false;
+  counts_1s_ready = counts_5s_ready = counts_10s_ready = counts_30s_ready = counts_1m_ready = counts_10m_ready = false;
   
   // reset timers
-  last_button_time = last_refresh = count_1s_time = count_5s_time = count_10s_time = millis();
+  last_button_time = last_refresh = last_bar_refresh = count_100ms_time = count_1s_time = count_5s_time = count_10s_time = millis();
   
   // reset counts
-  time = total = max_cpm = max_time = count_1s = count_5s = count_10s = 0;
+  time = total = max_cpm = max_time = count_100ms = count_1s = count_5s = count_10s = 0;
 }
 
 // check if alarm dose reached
@@ -1275,6 +1299,9 @@ void resetSetting() {
 
 // triggers on interrupt event
 void click() {
+  // increment 100 msec count
+  count_100ms++;
+  
   // increment 1 sec count
   count_1s++;
   
@@ -1289,6 +1316,23 @@ void click() {
 void collectData() {
   unsigned long cpm;
   
+  if (millis() >= count_100ms_time + PERIOD_100MS) {
+    // accumulate 1 sec data
+    counts_1s[counts_1s_index++] = count_100ms;
+
+    // reset count within 100 msec
+    count_100ms = 0;
+    
+    // reset 100 msec time
+    count_100ms_time = millis();
+
+    // increment 1 sec index and check if data is ready
+    if (counts_1s_index >= COUNTS_1S_LEN) {
+      counts_1s_index = 0;
+      counts_1s_ready = true;
+    }
+  }
+  
   // collect 1s, 5s, 10s, 30s, 1m every 1s
   if (millis() >= count_1s_time + PERIOD_1S) {
     // increment time
@@ -1302,26 +1346,17 @@ void collectData() {
       total = 0;
     }
     
-    // assign current CPS
-    counts_1s = count_1s;
-
-    // reset current CPS count
-    count_1s = 0;
-    
-    // reset last 1 sec time
-    count_1s_time = millis();
-
     // accumulate 5 sec data
-    counts_5s[counts_5s_index++] = counts_1s;
+    counts_5s[counts_5s_index++] = count_1s;
     
     // accumulate 10 sec data
-    counts_10s[counts_10s_index++] = counts_1s;
+    counts_10s[counts_10s_index++] = count_1s;
     
     // accumulate 30 sec data
-    counts_30s[counts_30s_index++] = counts_1s;
+    counts_30s[counts_30s_index++] = count_1s;
     
     // accumulate 1 min data
-    counts_1m[counts_1m_index++] = counts_1s;
+    counts_1m[counts_1m_index++] = count_1s;
     
     // increment 5 sec index and check if data is ready
     if (counts_5s_index >= COUNTS_5S_LEN) {
@@ -1346,6 +1381,12 @@ void collectData() {
       counts_1m_index = 0;
       counts_1m_ready = true;
     }
+
+    // reset current CPS count
+    count_1s = 0;
+    
+    // reset last 1 sec time
+    count_1s_time = millis();
   }
   
   // collect 5m data every 5s
@@ -1394,6 +1435,17 @@ void collectData() {
       counts_10m_ready = true;
     }
   }
+}
+
+// returns current CPS
+float getCPS() {
+  float sum = 0;
+  
+  for (byte i = 0; i < COUNTS_1S_LEN; i++) {
+    sum += counts_1s[i];
+  }
+  
+  return sum;
 }
 
 // returns average CPS within 5 sec
