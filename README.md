@@ -85,6 +85,9 @@ Note: currently, the **ALT** button is optional. All features will be still avai
 Change Log
 ----------
 
+**1.6**
+ * fast response analog bar
+
 **1.5**
  * settings fixes
 
