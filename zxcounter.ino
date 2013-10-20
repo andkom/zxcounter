@@ -813,16 +813,18 @@ void printBar(float value, float max, byte blocks) {
   
   float scaler = max / float(blocks * 5);
   byte bar_value = value / scaler;
-  byte full_blocks = bar_value / blocks;
-  byte prtl_blocks = bar_value % blocks;
+  byte full_blocks = bar_value / 5;
+  byte prtl_blocks = bar_value % 5;
 
   for (byte i = 0; i < full_blocks; i++) {
     lcd.write(5);
   }
   
-  lcd.write(prtl_blocks);
+  if (prtl_blocks) {
+    lcd.write(prtl_blocks);
+  }
   
-  for (byte i = full_blocks + 1; i < blocks; i++) {
+  for (byte i = full_blocks + prtl_blocks; i < blocks; i++) {
     lcd.write(byte(0));
   }
 }
