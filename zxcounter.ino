@@ -3,7 +3,7 @@
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
 
-#define VERSION                   1.6      // version of this software
+#define VERSION                   1.7      // version of this software
 
 // display modes
 #define MODE_AUTO                 0        // show stats and bar with auto interval
